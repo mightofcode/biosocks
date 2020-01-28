@@ -12,7 +12,7 @@ Chrome & SwitchyOmega
 
 ## Usage
 ├── target  
-│   └── socksproxy-0.0.1.jar                            
+│   └── biosocks-0.0.1.jar                            
 ├── data                          
 │   ├── client.json    
 │   └── server.json                  
