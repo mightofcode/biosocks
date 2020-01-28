@@ -3,21 +3,21 @@ BIOSocks
 
 ## Background/About this project
 
-BIOSocks  is an socks5 tool to  surf the Internet
+BIOSocks  is an socks5 tool to surf the Internet
 
 ## Requirements
 
 Java 
 Chrome & SwitchyOmega
 
-## Run
-├── target
-│   └── socksproxy-0.0.1.jar                          
-├── data                        
-│   ├── client.json  
-│   └── server.json                
-├── client.sh
-└── server.sh                         
+## Usage
+├── target  
+│   └── socksproxy-0.0.1.jar                            
+├── data                          
+│   ├── client.json    
+│   └── server.json                  
+├── client.sh  
+└── server.sh                           
 
 ### Client
 
