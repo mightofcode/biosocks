@@ -118,7 +118,7 @@ public class BioServer implements Runnable {
                         closeTunnel(tunnel);
                     }
                     buffer.flip();
-                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), configDto.getSecret());
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit());
                     BioUtil.write(tunnel.remote, buffer);
                 }
 
@@ -164,7 +164,7 @@ public class BioServer implements Runnable {
                     }
                     buffer.flip();
 
-                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), configDto.getSecret());
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit());
 
                     BioUtil.write(tunnel.local, buffer);
                 }
@@ -189,6 +189,7 @@ public class BioServer implements Runnable {
         try {
             String str = FileUtils.readFileToString(new File("data/server.json"), "utf-8");
             configDto = JSON.parseObject(str, ConfigDto.class);
+            EncodeUtil.setSecret(configDto.getSecret());
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(configDto.getServer()), configDto.getServerPort()));

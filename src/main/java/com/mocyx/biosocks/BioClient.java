@@ -146,7 +146,7 @@ public class BioClient implements Runnable {
                 }
                 inBuffer.flip();
 
-                EncodeUtil.simpleXorEncrypt(inBuffer.array(), 0, inBuffer.limit(), clientConfigDto.getSecret());
+                EncodeUtil.simpleXorEncrypt(inBuffer.array(), 0, inBuffer.limit());
 
                 BioUtil.write(pipe.remote, inBuffer);
             }
@@ -234,7 +234,7 @@ public class BioClient implements Runnable {
                     }
                     buffer.flip();
 
-                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), clientConfigDto.getSecret());
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit());
 
                     BioUtil.write(pipe.local, buffer);
                 }
@@ -262,6 +262,7 @@ public class BioClient implements Runnable {
         try {
             String str = FileUtils.readFileToString(new File("data/client.json"), "utf-8");
             clientConfigDto = JSON.parseObject(str, ConfigDto.class);
+            EncodeUtil.setSecret(clientConfigDto.getSecret());
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(clientConfigDto.getClient()), clientConfigDto.getClientPort()));

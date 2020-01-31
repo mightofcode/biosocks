@@ -2,6 +2,7 @@ package com.mocyx.biosocks.protocol;
 
 
 import com.mocyx.biosocks.util.ByteBufferUtil;
+import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -45,15 +46,18 @@ public class TunnelProtocol {
         int port;
 
         public void write(ByteBuffer buffer) {
+
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
-
             buffer.put(type);
             if (type == ReqMsgType.CONNECT_DOMAIN.v) {
                 ByteBufferUtil.writeSmallString(buffer, domain);
                 ByteBufferUtil.writePort(buffer, port);
             }
             short len = (short) ((buffer.position() - oldPos) - 2);
+
+            EncodeUtil.simpleXorEncrypt(buffer.array(), oldPos + 2, len);
+
             buffer.putShort(oldPos, len);
         }
 
@@ -68,6 +72,8 @@ public class TunnelProtocol {
                 buffer.reset();
                 return null;
             }
+
+            EncodeUtil.simpleXorEncrypt(buffer.array(), buffer.position(), dataLen);
 
             TunnelRequest request = new TunnelRequest();
             request.type = buffer.get();
@@ -94,7 +100,13 @@ public class TunnelProtocol {
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
             buffer.put(type);
-            buffer.putShort(oldPos, (short) (buffer.position() - oldPos - 2));
+
+
+            int len = (short) (buffer.position() - oldPos - 2);
+            EncodeUtil.simpleXorEncrypt(buffer.array(), oldPos + 2, len);
+
+            buffer.putShort(oldPos, (short) len);
+
         }
 
         public static TunnelResponse tryRead(ByteBuffer buffer) {
@@ -107,6 +119,9 @@ public class TunnelProtocol {
                 buffer.reset();
                 return null;
             }
+
+            EncodeUtil.simpleXorEncrypt(buffer.array(), buffer.position(), dataLen);
+
             TunnelResponse response = new TunnelResponse();
             response.type = buffer.get();
             return response;
