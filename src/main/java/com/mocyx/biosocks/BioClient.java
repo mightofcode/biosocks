@@ -2,7 +2,7 @@ package com.mocyx.biosocks;
 
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.util.BioUtil;
-import com.mocyx.biosocks.entity.JSONConfigDto;
+import com.mocyx.biosocks.entity.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
 import com.mocyx.biosocks.protocol.SocksProtocol;
 import com.mocyx.biosocks.protocol.SocksProtocol.SocksConnectRequestDto;
@@ -11,6 +11,7 @@ import com.mocyx.biosocks.protocol.SocksProtocol.SocksShakeResponseDto;
 import com.mocyx.biosocks.protocol.TunnelProtocol;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelResponse;
+import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
@@ -144,6 +145,9 @@ public class BioClient implements Runnable {
                     closePipe(pipe);
                 }
                 inBuffer.flip();
+
+                EncodeUtil.simpleXorEncrypt(inBuffer.array(), 0, inBuffer.limit(), clientConfigDto.getSecret());
+
                 BioUtil.write(pipe.remote, inBuffer);
             }
         }
@@ -229,6 +233,9 @@ public class BioClient implements Runnable {
                         closePipe(pipe);
                     }
                     buffer.flip();
+
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), clientConfigDto.getSecret());
+
                     BioUtil.write(pipe.local, buffer);
                 }
             } catch (ClosedChannelException e) {
@@ -248,13 +255,13 @@ public class BioClient implements Runnable {
     }
 
     private ServerSocketChannel serverSocketChannel;
-    JSONConfigDto clientConfigDto;
+    ConfigDto clientConfigDto;
 
     @Override
     public void run() {
         try {
             String str = FileUtils.readFileToString(new File("data/client.json"), "utf-8");
-            clientConfigDto = JSON.parseObject(str, JSONConfigDto.class);
+            clientConfigDto = JSON.parseObject(str, ConfigDto.class);
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(clientConfigDto.getClient()), clientConfigDto.getClientPort()));

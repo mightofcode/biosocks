@@ -27,7 +27,7 @@ public class ByteBufferUtil {
         int v1 = (shortBytes[0] & 0xff);
         int v2 = (shortBytes[1] & 0xff);
 
-        return (int) (v1 << 8 | v2);
+        return (v1 << 8 | v2);
     }
 
     static public void writeSmallString(ByteBuffer buffer, String s) {

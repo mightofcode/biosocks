@@ -2,11 +2,12 @@ package com.mocyx.biosocks;
 
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.util.BioUtil;
-import com.mocyx.biosocks.entity.JSONConfigDto;
+import com.mocyx.biosocks.entity.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
 import com.mocyx.biosocks.protocol.TunnelProtocol;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelResponse;
+import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
@@ -117,6 +118,7 @@ public class BioServer implements Runnable {
                         closeTunnel(tunnel);
                     }
                     buffer.flip();
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), configDto.getSecret());
                     BioUtil.write(tunnel.remote, buffer);
                 }
 
@@ -161,6 +163,9 @@ public class BioServer implements Runnable {
                         closeTunnel(tunnel);
                     }
                     buffer.flip();
+
+                    EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit(), configDto.getSecret());
+
                     BioUtil.write(tunnel.local, buffer);
                 }
 
@@ -175,7 +180,7 @@ public class BioServer implements Runnable {
         }
     }
 
-    JSONConfigDto configDto;
+    ConfigDto configDto;
 
     ServerSocketChannel serverSocketChannel;
 
@@ -183,7 +188,7 @@ public class BioServer implements Runnable {
     public void run() {
         try {
             String str = FileUtils.readFileToString(new File("data/server.json"), "utf-8");
-            configDto = JSON.parseObject(str, JSONConfigDto.class);
+            configDto = JSON.parseObject(str, ConfigDto.class);
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(configDto.getServer()), configDto.getServerPort()));

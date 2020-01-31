@@ -14,9 +14,6 @@ import java.nio.ByteBuffer;
  */
 @Slf4j
 public class SocksProtocol {
-
-
-
     @Data
     public static class SocksShakeRequestDto {
         byte ver;
