@@ -22,11 +22,13 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 
+/**
+ * @author Administrator
+ */
 @Slf4j
 @Component
 public class BioServer implements Runnable {
     static void closeTunnel(Tunnel tunnel) {
-
         try {
             synchronized (tunnel) {
                 if (tunnel.local != null) {
@@ -58,7 +60,7 @@ public class BioServer implements Runnable {
         private void sendConnectFail(Tunnel tunnel) throws IOException {
             buffer.clear();
             TunnelResponse response = new TunnelResponse();
-            response.setType((byte) TunnelProtocol.ResMsgType.CONNECT_FAIL.getV());
+            response.setType( TunnelProtocol.TunnelMsgType.RES_CONNECT_FAIL.getV());
             response.write(buffer);
             buffer.flip();
             BioUtil.write(tunnel.local, buffer);
@@ -67,7 +69,7 @@ public class BioServer implements Runnable {
         private void sendConnectSuccess(Tunnel tunnel) throws IOException {
             buffer.clear();
             TunnelResponse response = new TunnelResponse();
-            response.setType((byte) TunnelProtocol.ResMsgType.CONNECT_SUCCESS.getV());
+            response.setType( TunnelProtocol.TunnelMsgType.RES_CONNECT_SUCCESS.getV());
             response.write(buffer);
             buffer.flip();
             BioUtil.write(tunnel.local, buffer);
@@ -187,7 +189,7 @@ public class BioServer implements Runnable {
     @Override
     public void run() {
         try {
-            String str = FileUtils.readFileToString(new File("data/server.json"), "utf-8");
+            String str = FileUtils.readFileToString(new File("server.json"), "utf-8");
             configDto = JSON.parseObject(str, ConfigDto.class);
             EncodeUtil.setSecret(configDto.getSecret());
             serverSocketChannel = ServerSocketChannel.open();

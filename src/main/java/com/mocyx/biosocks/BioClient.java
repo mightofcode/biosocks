@@ -101,7 +101,7 @@ public class BioClient implements Runnable {
         private void sendConnectRequest(Pipe pipe, String domain, int port) throws IOException {
             TunnelRequest request = new TunnelRequest();
             request.setDomain(domain);
-            request.setType((byte) TunnelProtocol.ReqMsgType.CONNECT_DOMAIN.getV());
+            request.setType( TunnelProtocol.TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
             request.setPort(port);
             tmpBuffer.clear();
             request.write(tmpBuffer);
@@ -122,9 +122,9 @@ public class BioClient implements Runnable {
                 if (response == null) {
                     inBuffer.compact();
                 } else {
-                    if (response.getType() == TunnelProtocol.ResMsgType.CONNECT_SUCCESS.getV()) {
+                    if (response.getType() == TunnelProtocol.TunnelMsgType.RES_CONNECT_SUCCESS.getV()) {
                         sendConnectResponse(pipe, (byte) 0x00);
-                    } else if (response.getType() == TunnelProtocol.ResMsgType.CONNECT_FAIL.getV()) {
+                    } else if (response.getType() == TunnelProtocol.TunnelMsgType.RES_CONNECT_FAIL.getV()) {
                         sendConnectResponse(pipe, (byte) 0x04);
                         throw new ProxyException("connect fail");
                     } else {
@@ -260,7 +260,7 @@ public class BioClient implements Runnable {
     @Override
     public void run() {
         try {
-            String str = FileUtils.readFileToString(new File("data/client.json"), "utf-8");
+            String str = FileUtils.readFileToString(new File("client.json"), "utf-8");
             clientConfigDto = JSON.parseObject(str, ConfigDto.class);
             EncodeUtil.setSecret(clientConfigDto.getSecret());
             serverSocketChannel = ServerSocketChannel.open();

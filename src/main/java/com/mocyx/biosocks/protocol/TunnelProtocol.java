@@ -14,34 +14,22 @@ import java.nio.ByteBuffer;
  */
 @Slf4j
 public class TunnelProtocol {
-
-    public enum ReqMsgType {
-        CONNECT_DOMAIN(1),
-        ;
-
-        @Getter
-        int v;
-
-        ReqMsgType(int v) {
-            this.v = v;
-        }
-    }
-
-    public enum ResMsgType {
-        CONNECT_SUCCESS(1),
-        CONNECT_FAIL(2),
+    public enum TunnelMsgType {
+        REQ_CONNECT_DOMAIN((short) 1),
+        RES_CONNECT_SUCCESS((short) 129),
+        RES_CONNECT_FAIL((short) 130),
         ;
         @Getter
-        private int v;
+        short v;
 
-        ResMsgType(int v) {
+        TunnelMsgType(short v) {
             this.v = v;
         }
     }
 
     @Data
     public static class TunnelRequest {
-        byte type;
+        short type;
         String domain;
         int port;
 
@@ -49,8 +37,8 @@ public class TunnelProtocol {
 
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
-            buffer.put(type);
-            if (type == ReqMsgType.CONNECT_DOMAIN.v) {
+            buffer.putShort(type);
+            if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
                 ByteBufferUtil.writeSmallString(buffer, domain);
                 ByteBufferUtil.writePort(buffer, port);
             }
@@ -76,9 +64,9 @@ public class TunnelProtocol {
             EncodeUtil.simpleXorEncrypt(buffer.array(), buffer.position(), dataLen);
 
             TunnelRequest request = new TunnelRequest();
-            request.type = buffer.get();
+            request.type = buffer.getShort();
 
-            if (request.type == ReqMsgType.CONNECT_DOMAIN.v) {
+            if (request.type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
                 int len = buffer.get();
                 request.domain = ByteBufferUtil.readString(buffer, len);
                 request.port = ByteBufferUtil.readPort(buffer);
@@ -87,19 +75,17 @@ public class TunnelProtocol {
                 return null;
             }
             return request;
-
         }
-
     }
 
     @Data
     public static class TunnelResponse {
-        byte type;
+        short type;
 
         public void write(ByteBuffer buffer) {
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
-            buffer.put(type);
+            buffer.putShort(type);
 
 
             int len = (short) (buffer.position() - oldPos - 2);
@@ -123,7 +109,7 @@ public class TunnelProtocol {
             EncodeUtil.simpleXorEncrypt(buffer.array(), buffer.position(), dataLen);
 
             TunnelResponse response = new TunnelResponse();
-            response.type = buffer.get();
+            response.type = buffer.getShort();
             return response;
         }
     }
