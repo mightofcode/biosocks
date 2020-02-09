@@ -60,7 +60,7 @@ public class BioServer implements Runnable {
         private void sendConnectFail(Tunnel tunnel) throws IOException {
             buffer.clear();
             TunnelResponse response = new TunnelResponse();
-            response.setType( TunnelProtocol.TunnelMsgType.RES_CONNECT_FAIL.getV());
+            response.setType(TunnelProtocol.TunnelMsgType.RES_CONNECT_FAIL.getV());
             response.write(buffer);
             buffer.flip();
             BioUtil.write(tunnel.local, buffer);
@@ -69,7 +69,7 @@ public class BioServer implements Runnable {
         private void sendConnectSuccess(Tunnel tunnel) throws IOException {
             buffer.clear();
             TunnelResponse response = new TunnelResponse();
-            response.setType( TunnelProtocol.TunnelMsgType.RES_CONNECT_SUCCESS.getV());
+            response.setType(TunnelProtocol.TunnelMsgType.RES_CONNECT_SUCCESS.getV());
             response.write(buffer);
             buffer.flip();
             BioUtil.write(tunnel.local, buffer);
@@ -88,21 +88,17 @@ public class BioServer implements Runnable {
                     buffer.compact();
                 } else {
                     SocketChannel remote = SocketChannel.open();
-                    boolean success = false;
                     InetSocketAddress address = new InetSocketAddress(requestDto.getDomain(), requestDto.getPort());
                     try {
-                        success = remote.connect(address);
+                        remote.socket().connect(address, 5000);
                     } catch (IOException | UnresolvedAddressException e) {
-
-                    }
-                    if (!success) {
                         sendConnectFail(tunnel);
                         log.error("connect remote fail {}", address);
                         throw new ProxyException("connect remote fail");
-                    } else {
-                        tunnel.remote = remote;
-                        sendConnectSuccess(tunnel);
                     }
+
+                    tunnel.remote = remote;
+                    sendConnectSuccess(tunnel);
                     break;
                 }
             }
