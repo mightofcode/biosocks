@@ -12,10 +12,9 @@ Chrome & SwitchyOmega
 
 ## Usage
 ├── target  
-│   └── biosocks-0.0.1.jar                            
-├── data                          
-│   ├── client.json    
-│   └── server.json                  
+├── biosocks-0.0.1.jar                            
+├── client.json    
+├── server.json                  
 ├── client.sh  
 └── server.sh                           
 
@@ -49,7 +48,11 @@ start server
 java -jar ./target/biosocks-0.0.1.jar server
 ```
 ### connect proxy
-use Chrome & SwitchyOmega to connect to SOCKS5 proxy
+client是一个socks5代理
+server部署在外网服务器上
+使用Chrome & SwitchyOmega连接本地的socks5代理实现网上冲浪
+
+
 
 
 
