@@ -93,7 +93,7 @@ public class BioServer implements Runnable {
                         remote.socket().connect(address, 5000);
                     } catch (IOException | UnresolvedAddressException e) {
                         sendConnectFail(tunnel);
-                        log.error("connect remote fail {}", address);
+                        log.error("connect remote fail {}", address, e);
                         throw new ProxyException("connect remote fail");
                     }
 

@@ -101,7 +101,7 @@ public class BioClient implements Runnable {
         private void sendConnectRequest(Pipe pipe, String domain, int port) throws IOException {
             TunnelRequest request = new TunnelRequest();
             request.setDomain(domain);
-            request.setType( TunnelProtocol.TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
+            request.setType(TunnelProtocol.TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
             request.setPort(port);
             tmpBuffer.clear();
             request.write(tmpBuffer);
@@ -177,7 +177,6 @@ public class BioClient implements Runnable {
                 sendConnectRequest(pipe, request.getDomain(), request.getPort());
             }
             waitForConnectResult();
-
         }
 
         @Override
@@ -185,20 +184,14 @@ public class BioClient implements Runnable {
             try {
                 SocketChannel remote = SocketChannel.open();
 
-                boolean success = false;
-
                 try {
-
                     InetSocketAddress address = new InetSocketAddress(clientConfigDto.getServer(), clientConfigDto.getServerPort());
-                    success = remote.connect(address);
+                    remote.socket().connect(address, 5000);
                 } catch (Exception e) {
-                    log.error(e.getMessage(), e);
+                    log.error("connect fail", e);
                     throw new ProxyException(String.format("连接远程服务器失败 %s %d", clientConfigDto.getServer(), clientConfigDto.getServerPort()));
                 }
 
-                if (!success) {
-                    throw new ProxyException("connect server fail");
-                }
                 pipe.remote = remote;
                 handleShake();
                 handleConnect();
