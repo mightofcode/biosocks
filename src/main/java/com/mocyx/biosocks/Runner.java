@@ -20,6 +20,9 @@ public class Runner implements CommandLineRunner {
     @Autowired
     private BioServer server;
 
+    @Autowired
+    private BioUdpServer udpServer;
+
 
     @Override
     public void run(String... args) {
@@ -31,8 +34,15 @@ public class Runner implements CommandLineRunner {
         try {
             if (Objects.equals(args[0], "client")) {
                 client.run();
+
             } else if (Objects.equals(args[0], "server")) {
-                server.run();
+                Thread t = new Thread(udpServer);
+                t.start();
+                Thread ts = new Thread(server);
+                ts.start();
+
+                ts.join();
+                t.join();
             }
         } catch (Exception e) {
             log.error("error {} ", e.getMessage(), e);

@@ -4,7 +4,6 @@ package com.mocyx.biosocks.util;
  * @author Administrator
  */
 public class EncodeUtil {
-
     private static String secret = "default";
 
     public synchronized static String setSecret(String secret) {
@@ -17,5 +16,4 @@ public class EncodeUtil {
             data[i] ^= v;
         }
     }
-
 }

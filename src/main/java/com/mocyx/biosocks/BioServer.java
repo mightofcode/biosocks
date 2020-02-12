@@ -91,6 +91,7 @@ public class BioServer implements Runnable {
                     InetSocketAddress address = new InetSocketAddress(requestDto.getDomain(), requestDto.getPort());
                     try {
                         remote.socket().connect(address, 5000);
+                        log.info("connect remote success {}", address);
                     } catch (IOException | UnresolvedAddressException e) {
                         sendConnectFail(tunnel);
                         log.error("connect remote fail {}", address, e);
