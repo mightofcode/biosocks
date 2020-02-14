@@ -259,7 +259,7 @@ public class BioClient implements Runnable {
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(clientConfigDto.getClient()), clientConfigDto.getClientPort()));
-            log.info("listen on {}", serverSocketChannel.getLocalAddress());
+            log.info("tcp listen on {}", serverSocketChannel.getLocalAddress());
             while (true) {
                 SocketChannel socketChannel = serverSocketChannel.accept();
                 log.info("accept {}", socketChannel);

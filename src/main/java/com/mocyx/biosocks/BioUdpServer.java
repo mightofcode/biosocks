@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.Iterator;
@@ -31,9 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class BioUdpServer implements Runnable {
 
     private ConfigDto configDto;
-
     private UdpTunnel udpTunnel;
-
 
     @Data
     private static class Pipe {
@@ -51,7 +48,6 @@ public class BioUdpServer implements Runnable {
         private Selector selector;
         private DatagramChannel upChannel;
         private ConcurrentHashMap<String, Pipe> pipes = new ConcurrentHashMap<>();
-
         private BlockingQueue<Pipe> pipeQueue = new ArrayBlockingQueue<>(1024);
     }
 
@@ -79,9 +75,9 @@ public class BioUdpServer implements Runnable {
 
         try {
             int w = tunnel.upChannel.send(buffer, pipe.client);
-            log.info("udp write {} {}", w, pipe.client);
+            log.debug("udp write {} {}", w, pipe.client);
         } catch (IOException e) {
-            log.error("udp write error ");
+            log.error("udp write error ", e);
         }
 
     }
@@ -125,7 +121,7 @@ public class BioUdpServer implements Runnable {
                             InetSocketAddress address = (InetSocketAddress) inputChannel.receive(receiveBuffer);
                             receiveBuffer.flip();
 
-                            log.info("udp read {}", receiveBuffer.remaining());
+                            log.debug("udp read {}", receiveBuffer.remaining());
 
                             byte[] data = new byte[receiveBuffer.remaining()];
                             receiveBuffer.get(data);
@@ -184,18 +180,19 @@ public class BioUdpServer implements Runnable {
                         newPipe.channel.connect(request.getRemote());
                         newPipe.channel.configureBlocking(false);
                         newPipe.key = key;
-                        //newPipe.channel.register(udpTunnel.selector, SelectionKey.OP_READ, pipe);
                         udpTunnel.getPipes().put(key, newPipe);
                         udpTunnel.pipeQueue.add(newPipe);
                         udpTunnel.selector.wakeup();
                         pipe = newPipe;
+
+                        log.info("create udp pipe {}", pipe.key);
                     }
                     ByteBuffer tmpBuffer = ByteBuffer.wrap(request.getData());
                     try {
                         int w = pipe.channel.write(tmpBuffer);
-                        log.info("write udp to remote {} {}", w, pipe.key);
+                        log.debug("write udp to remote {} {}", w, pipe.key);
                     } catch (IOException e) {
-                        log.error("fail write udp to remote {}", pipe.key);
+                        log.error("fail write udp to remote {}", pipe.key, e);
                     }
 
                 }
