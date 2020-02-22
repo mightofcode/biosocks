@@ -2,6 +2,7 @@ package com.mocyx.biosocks.bio;
 
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.Global;
+import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.bio.protocol.SocksProtocol;
 import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksConnectRequestDto;
 import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksShakeRequestDto;
@@ -102,7 +103,7 @@ public class BioClient implements Runnable {
         private void sendConnectRequest(Pipe pipe, String domain, int port) throws IOException {
             TunnelRequest request = new TunnelRequest();
             request.setDomain(domain);
-            request.setType(TunnelProtocol.TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
+            request.setType((short) TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
             request.setPort(port);
             ByteBuffer tmpBuffer = ByteBuffer.allocate(Global.smallBufferSize);
             request.write(tmpBuffer);
@@ -123,9 +124,9 @@ public class BioClient implements Runnable {
                 if (response == null) {
                     inBuffer.compact();
                 } else {
-                    if (response.getType() == TunnelProtocol.TunnelMsgType.RES_CONNECT_SUCCESS.getV()) {
+                    if (response.getType() == TunnelMsgType.RES_CONNECT_SUCCESS.getV()) {
                         sendConnectResponse(pipe, (byte) 0x00);
-                    } else if (response.getType() == TunnelProtocol.TunnelMsgType.RES_CONNECT_FAIL.getV()) {
+                    } else if (response.getType() == TunnelMsgType.RES_CONNECT_FAIL.getV()) {
                         sendConnectResponse(pipe, (byte) 0x04);
                         throw new ProxyException("connect fail");
                     } else {

@@ -2,7 +2,7 @@ package com.mocyx.biosocks.nio.tunnel;
 
 
 import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
+import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.nio.ByteBuffUtil;
 import com.mocyx.biosocks.util.EncodeUtil;
 import io.netty.buffer.ByteBuf;
@@ -36,19 +36,19 @@ public class TunnelMsgDecoder extends ByteToMessageDecoder {
 
             int type = buf.readShort();
 
-            if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
+            if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.getV()) {
                 TunnelRequest request = new TunnelRequest();
                 request.setType((short) type);
                 request.setDomain(ByteBuffUtil.readString(buf));
                 request.setPort(buf.readInt());
                 out.add(request);
                 log.debug("REQ_CONNECT_DOMAIN {}", JSON.toJSONString(request));
-            } else if (type == TunnelMsgType.RES_CONNECT_SUCCESS.v) {
+            } else if (type == TunnelMsgType.RES_CONNECT_SUCCESS.getV()) {
                 TunnelResponse response = new TunnelResponse();
                 response.setType((short) type);
                 out.add(response);
                 log.debug("RES_CONNECT_SUCCESS {}", JSON.toJSONString(response));
-            } else if (type == TunnelMsgType.RES_CONNECT_FAIL.v) {
+            } else if (type == TunnelMsgType.RES_CONNECT_FAIL.getV()) {
                 TunnelResponse response = new TunnelResponse();
                 response.setType((short) type);
                 out.add(response);

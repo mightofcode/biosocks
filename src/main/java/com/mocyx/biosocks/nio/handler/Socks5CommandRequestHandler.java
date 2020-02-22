@@ -2,6 +2,7 @@ package com.mocyx.biosocks.nio.handler;
 
 
 import com.mocyx.biosocks.Global;
+import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.nio.NioUtil;
 import com.mocyx.biosocks.nio.TunnelDto;
 import com.mocyx.biosocks.nio.tunnel.*;

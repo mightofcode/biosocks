@@ -1,6 +1,7 @@
 package com.mocyx.biosocks.bio.protocol;
 
 
+import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.util.ByteBufferUtil;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.Data;
@@ -14,18 +15,7 @@ import java.nio.ByteBuffer;
  */
 @Slf4j
 public class TunnelProtocol {
-    public enum TunnelMsgType {
-        REQ_CONNECT_DOMAIN((short) 1),
-        RES_CONNECT_SUCCESS((short) 129),
-        RES_CONNECT_FAIL((short) 130),
-        ;
-        @Getter
-        short v;
 
-        TunnelMsgType(short v) {
-            this.v = v;
-        }
-    }
 
     @Data
     public static class TunnelRequest {
@@ -38,7 +28,7 @@ public class TunnelProtocol {
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
             buffer.putShort(type);
-            if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
+            if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.getV()) {
                 ByteBufferUtil.writeSmallString(buffer, domain);
                 buffer.putInt(port);
             }
@@ -66,7 +56,7 @@ public class TunnelProtocol {
             TunnelRequest request = new TunnelRequest();
             request.type = buffer.getShort();
 
-            if (request.type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
+            if (request.type == TunnelMsgType.REQ_CONNECT_DOMAIN.getV()) {
                 request.domain = ByteBufferUtil.readSmallString(buffer);
                 request.port = buffer.getInt();
             } else {

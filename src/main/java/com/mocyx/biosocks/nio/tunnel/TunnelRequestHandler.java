@@ -2,9 +2,9 @@ package com.mocyx.biosocks.nio.tunnel;
 
 
 import com.alibaba.fastjson.JSON;
+import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.nio.NioUtil;
 import com.mocyx.biosocks.nio.handler.DataTransferHandler;
-import com.mocyx.biosocks.util.BioUtil;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;

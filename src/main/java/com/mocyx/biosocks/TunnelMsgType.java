@@ -1,4 +1,4 @@
-package com.mocyx.biosocks.nio.tunnel;
+package com.mocyx.biosocks;
 
 
 import lombok.Getter;

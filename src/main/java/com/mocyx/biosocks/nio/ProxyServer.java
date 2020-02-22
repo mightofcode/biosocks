@@ -1,4 +1,5 @@
 package com.mocyx.biosocks.nio;
+
 import com.mocyx.biosocks.Global;
 import com.mocyx.biosocks.nio.tunnel.TunnelMsgDecoder;
 import com.mocyx.biosocks.nio.tunnel.TunnelMsgEncoder;
@@ -45,6 +46,7 @@ public class ProxyServer implements Runnable {
 
                             TunnelDto tunnelDto = new TunnelDto();
                             tunnelDto.setLocal(ch);
+
                             ch.attr(NioUtil.TUNNEL_KEY).set(tunnelDto);
 
                         }
