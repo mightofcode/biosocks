@@ -180,19 +180,16 @@ public class BioServer implements Runnable {
         }
     }
 
-    ConfigDto configDto;
 
     ServerSocketChannel serverSocketChannel;
 
     @Override
     public void run() {
         try {
-            String str = FileUtils.readFileToString(new File("server.json"), "utf-8");
-            configDto = JSON.parseObject(str, ConfigDto.class);
-            EncodeUtil.setSecret(configDto.getSecret());
+            EncodeUtil.setSecret(Global.config.getSecret());
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
-            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(configDto.getServer()), configDto.getServerPort()));
+            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(Global.config.getServer()), Global.config.getServerPort()));
             log.info("tcp listen on {}", serverSocketChannel.getLocalAddress());
             while (true) {
                 SocketChannel socketChannel = serverSocketChannel.accept();
