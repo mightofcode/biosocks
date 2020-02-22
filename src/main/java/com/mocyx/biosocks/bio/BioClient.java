@@ -1,16 +1,18 @@
-package com.mocyx.biosocks;
+package com.mocyx.biosocks.bio;
 
 import com.alibaba.fastjson.JSON;
+import com.mocyx.biosocks.Global;
+import com.mocyx.biosocks.bio.protocol.SocksProtocol;
+import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksConnectRequestDto;
+import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksShakeRequestDto;
+import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksShakeResponseDto;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelRequest;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelResponse;
 import com.mocyx.biosocks.util.BioUtil;
-import com.mocyx.biosocks.entity.ConfigDto;
+import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
-import com.mocyx.biosocks.protocol.SocksProtocol;
-import com.mocyx.biosocks.protocol.SocksProtocol.SocksConnectRequestDto;
-import com.mocyx.biosocks.protocol.SocksProtocol.SocksShakeRequestDto;
-import com.mocyx.biosocks.protocol.SocksProtocol.SocksShakeResponseDto;
-import com.mocyx.biosocks.protocol.TunnelProtocol;
-import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelRequest;
-import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelResponse;
+
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -50,12 +52,11 @@ public class BioClient implements Runnable {
 
     }
 
-    class ClientWorkerA implements Runnable {
+    class UpStreamWorkerA implements Runnable {
         private Pipe pipe;
-        ByteBuffer inBuffer = ByteBuffer.allocate(4096);
-        ByteBuffer tmpBuffer = ByteBuffer.allocate(4096);
+        ByteBuffer inBuffer = ByteBuffer.allocate(Global.smallBufferSize);
 
-        public ClientWorkerA(Pipe pipe) {
+        public UpStreamWorkerA(Pipe pipe) {
             this.pipe = pipe;
 
         }
@@ -75,7 +76,7 @@ public class BioClient implements Runnable {
                     SocksShakeResponseDto res = new SocksShakeResponseDto();
                     res.setVer((byte) 0x05);
                     res.setMethod((byte) 0x00);
-                    tmpBuffer.clear();
+                    ByteBuffer tmpBuffer = ByteBuffer.allocate(Global.smallBufferSize);
                     res.write(tmpBuffer);
                     tmpBuffer.flip();
                     BioUtil.write(pipe.local, tmpBuffer);
@@ -92,7 +93,7 @@ public class BioClient implements Runnable {
             res.setAtyp((byte) 0x01);
             res.setAddr(Inet4Address.getByName("0.0.0.0"));
             res.setPort((short) 0x0843);
-            tmpBuffer.clear();
+            ByteBuffer tmpBuffer = ByteBuffer.allocate(Global.smallBufferSize);
             res.write(tmpBuffer);
             tmpBuffer.flip();
             BioUtil.write(pipe.local, tmpBuffer);
@@ -103,7 +104,7 @@ public class BioClient implements Runnable {
             request.setDomain(domain);
             request.setType(TunnelProtocol.TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
             request.setPort(port);
-            tmpBuffer.clear();
+            ByteBuffer tmpBuffer = ByteBuffer.allocate(Global.smallBufferSize);
             request.write(tmpBuffer);
             tmpBuffer.flip();
             BioUtil.write(pipe.remote, tmpBuffer);
@@ -136,7 +137,7 @@ public class BioClient implements Runnable {
         }
 
         private void startTransfer() throws IOException {
-            Thread t = new Thread(new ClientWorkerB(pipe));
+            Thread t = new Thread(new DownStreamWorkerB(pipe));
             t.start();
             while (true) {
                 inBuffer.clear();
@@ -207,12 +208,12 @@ public class BioClient implements Runnable {
         }
     }
 
-    class ClientWorkerB implements Runnable {
+    class DownStreamWorkerB implements Runnable {
         Pipe pipe;
 
         ByteBuffer buffer = ByteBuffer.allocate(4096);
 
-        public ClientWorkerB(Pipe pipe) {
+        public DownStreamWorkerB(Pipe pipe) {
             this.pipe = pipe;
         }
 
@@ -265,7 +266,7 @@ public class BioClient implements Runnable {
                 log.info("accept {}", socketChannel);
                 Pipe pipe = new Pipe();
                 pipe.local = socketChannel;
-                Thread t = new Thread(new ClientWorkerA(pipe));
+                Thread t = new Thread(new UpStreamWorkerA(pipe));
                 t.start();
             }
         } catch (Exception e) {

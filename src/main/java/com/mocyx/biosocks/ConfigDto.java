@@ -1,4 +1,4 @@
-package com.mocyx.biosocks.entity;
+package com.mocyx.biosocks;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,5 +17,8 @@ public class ConfigDto {
     private Integer serverPort;
     private String client;
     private Integer clientPort;
-    private String secret="default";
+    private String secret = "default";
+
+
+
 }

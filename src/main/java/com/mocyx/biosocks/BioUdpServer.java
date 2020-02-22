@@ -1,10 +1,9 @@
 package com.mocyx.biosocks;
 
 import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.entity.ConfigDto;
-import com.mocyx.biosocks.protocol.TunnelUdpProtocol;
-import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpRequest;
-import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpResponse;
+import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol;
+import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol.TunnelUdpRequest;
+import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol.TunnelUdpResponse;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +60,6 @@ public class BioUdpServer implements Runnable {
 
 
     private static void sendUdpResponse(UdpTunnel tunnel, Pipe pipe, byte[] data) {
-
         TunnelUdpResponse response = new TunnelUdpResponse();
         response.setData(data);
         response.setRemote(pipe.getRemote());
@@ -71,7 +69,6 @@ public class BioUdpServer implements Runnable {
         ByteBuffer buffer = ByteBuffer.allocate(4096);
         response.write(buffer);
         buffer.flip();
-
 
         try {
             int w = tunnel.upChannel.send(buffer, pipe.client);

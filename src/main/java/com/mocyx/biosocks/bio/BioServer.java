@@ -1,12 +1,12 @@
-package com.mocyx.biosocks;
+package com.mocyx.biosocks.bio;
 
 import com.alibaba.fastjson.JSON;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelRequest;
+import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelResponse;
 import com.mocyx.biosocks.util.BioUtil;
-import com.mocyx.biosocks.entity.ConfigDto;
+import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
-import com.mocyx.biosocks.protocol.TunnelProtocol;
-import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelRequest;
-import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelResponse;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
