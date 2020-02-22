@@ -1,6 +1,7 @@
 package com.mocyx.biosocks.bio;
 
 import com.alibaba.fastjson.JSON;
+import com.mocyx.biosocks.Global;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelResponse;
@@ -49,11 +50,11 @@ public class BioServer implements Runnable {
         SocketChannel remote;
     }
 
-    private class ServerWorkerA implements Runnable {
+    private class ServerUpStreamWorker implements Runnable {
         Tunnel tunnel;
-        ByteBuffer buffer = ByteBuffer.allocate(4096);
+        ByteBuffer buffer = ByteBuffer.allocate(Global.smallBufferSize);
 
-        public ServerWorkerA(Tunnel tunnel) {
+        public ServerUpStreamWorker(Tunnel tunnel) {
             this.tunnel = tunnel;
         }
 
@@ -106,7 +107,7 @@ public class BioServer implements Runnable {
         }
 
         private void startTransfer() {
-            Thread t = new Thread(new ServerWorkerB(tunnel));
+            Thread t = new Thread(new ServerDownStreamWorker(tunnel));
             t.start();
 
             try {
@@ -143,12 +144,12 @@ public class BioServer implements Runnable {
         }
     }
 
-    class ServerWorkerB implements Runnable {
+    class ServerDownStreamWorker implements Runnable {
         Tunnel tunnel;
 
-        ByteBuffer buffer = ByteBuffer.allocate(4096);
+        ByteBuffer buffer = ByteBuffer.allocate(Global.smallBufferSize);
 
-        public ServerWorkerB(Tunnel pipe) {
+        public ServerDownStreamWorker(Tunnel pipe) {
             this.tunnel = pipe;
         }
 
@@ -198,7 +199,7 @@ public class BioServer implements Runnable {
                 log.info("accept {}", socketChannel);
                 Tunnel pipe = new Tunnel();
                 pipe.local = socketChannel;
-                Thread t = new Thread(new ServerWorkerA(pipe));
+                Thread t = new Thread(new ServerUpStreamWorker(pipe));
                 t.start();
             }
         } catch (Exception e) {

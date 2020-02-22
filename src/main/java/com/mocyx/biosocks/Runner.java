@@ -23,7 +23,7 @@ public class Runner implements CommandLineRunner {
     private BioServer server;
 
     @Autowired
-    private BioUdpServer udpServer;
+    private UdpServer udpServer;
 
 
     @Override

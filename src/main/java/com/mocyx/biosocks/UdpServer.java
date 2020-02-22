@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class BioUdpServer implements Runnable {
+public class UdpServer implements Runnable {
 
     private ConfigDto configDto;
     private UdpTunnel udpTunnel;
@@ -66,7 +66,7 @@ public class BioUdpServer implements Runnable {
         response.setSource(pipe.getSource());
         response.setType(TunnelUdpProtocol.TunnelUdpMsgType.RES_RECV.getV());
 
-        ByteBuffer buffer = ByteBuffer.allocate(4096);
+        ByteBuffer buffer = ByteBuffer.allocate(Global.largeBufferSize);
         response.write(buffer);
         buffer.flip();
 
@@ -114,7 +114,7 @@ public class BioUdpServer implements Runnable {
                         if (key.isValid() && key.isReadable()) {
                             DatagramChannel inputChannel = (DatagramChannel) key.channel();
 
-                            ByteBuffer receiveBuffer = ByteBuffer.allocate(16 * 1024);
+                            ByteBuffer receiveBuffer = ByteBuffer.allocate(Global.largeBufferSize);
                             InetSocketAddress address = (InetSocketAddress) inputChannel.receive(receiveBuffer);
                             receiveBuffer.flip();
 
@@ -158,7 +158,7 @@ public class BioUdpServer implements Runnable {
             log.info("udp listen on {}", datagramChannel.getLocalAddress());
 
             while (true) {
-                ByteBuffer buffer = ByteBuffer.allocate(16 * 1024);
+                ByteBuffer buffer = ByteBuffer.allocate(Global.largeBufferSize);
                 InetSocketAddress remoteAddres = (InetSocketAddress) datagramChannel.receive(buffer);
                 buffer.flip();
                 TunnelUdpRequest request = TunnelUdpRequest.tryRead(buffer);

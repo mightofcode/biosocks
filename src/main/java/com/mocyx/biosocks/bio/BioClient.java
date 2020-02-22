@@ -211,7 +211,7 @@ public class BioClient implements Runnable {
     class DownStreamWorkerB implements Runnable {
         Pipe pipe;
 
-        ByteBuffer buffer = ByteBuffer.allocate(4096);
+        ByteBuffer buffer = ByteBuffer.allocate(Global.smallBufferSize);
 
         public DownStreamWorkerB(Pipe pipe) {
             this.pipe = pipe;
