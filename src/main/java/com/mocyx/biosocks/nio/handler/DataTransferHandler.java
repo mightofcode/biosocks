@@ -1,6 +1,7 @@
 package com.mocyx.biosocks.nio.handler;
 
 
+import com.mocyx.biosocks.util.EncodeUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -24,8 +25,17 @@ public class DataTransferHandler extends ChannelInboundHandlerAdapter {
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
             log.debug("transfer data {}", buf.readableBytes());
+
+            byte[] data = new byte[buf.readableBytes()];
+            buf.readBytes(data);
+            EncodeUtil.simpleXorEncrypt(data, 0, data.length);
+
+            ByteBuf outBuffer = ctx.alloc().buffer();
+            outBuffer.writeBytes(data);
+            remoteChannel.writeAndFlush(outBuffer);
+        } else {
+            remoteChannel.writeAndFlush(msg);
         }
-        remoteChannel.writeAndFlush(msg);
     }
 
     @Override
