@@ -40,7 +40,7 @@ public class TunnelProtocol {
             buffer.putShort(type);
             if (type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
                 ByteBufferUtil.writeSmallString(buffer, domain);
-                ByteBufferUtil.writePort(buffer, port);
+                buffer.putInt(port);
             }
             short len = (short) ((buffer.position() - oldPos) - 2);
 
@@ -67,9 +67,8 @@ public class TunnelProtocol {
             request.type = buffer.getShort();
 
             if (request.type == TunnelMsgType.REQ_CONNECT_DOMAIN.v) {
-                int len = buffer.get();
-                request.domain = ByteBufferUtil.readString(buffer, len);
-                request.port = ByteBufferUtil.readPort(buffer);
+                request.domain = ByteBufferUtil.readSmallString(buffer);
+                request.port = buffer.getInt();
             } else {
                 buffer.reset();
                 return null;

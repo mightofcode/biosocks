@@ -47,7 +47,7 @@ public class BioClient implements Runnable {
             }
 
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            log.warn(e.getMessage(), e);
         }
 
     }
@@ -189,7 +189,7 @@ public class BioClient implements Runnable {
                     InetSocketAddress address = new InetSocketAddress(Global.config.getServer(), Global.config.getServerPort());
                     remote.socket().connect(address, 5000);
                 } catch (Exception e) {
-                    log.error("connect fail", e);
+                    log.warn("connect fail", e);
                     throw new ProxyException(String.format("连接远程服务器失败 %s %d", Global.config.getServer(), Global.config.getServerPort()));
                 }
 
@@ -201,7 +201,7 @@ public class BioClient implements Runnable {
                 log.debug("channel closed {}", e.getMessage());
                 closePipe(pipe);
             } catch (IOException e) {
-                log.error(e.getMessage(), e);
+                log.warn(e.getMessage(), e);
                 closePipe(pipe);
             }
             log.debug("ClientWorkerA exit");
@@ -253,7 +253,6 @@ public class BioClient implements Runnable {
     @Override
     public void run() {
         try {
-            EncodeUtil.setSecret(Global.config.getSecret());
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(Global.config.getClient()), Global.config.getClientPort()));

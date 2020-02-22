@@ -3,6 +3,8 @@ package com.mocyx.biosocks;
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.bio.BioClient;
 import com.mocyx.biosocks.bio.BioServer;
+import com.mocyx.biosocks.nio.ProxyServer;
+import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ public class Runner implements CommandLineRunner {
     @Autowired
     private UdpServer udpServer;
 
+    @Autowired
+    private ProxyServer nioServer;
+
 
     private void loadConfig(String path) {
         try {
@@ -47,15 +52,17 @@ public class Runner implements CommandLineRunner {
         try {
             if (Objects.equals(args[0], "client")) {
                 loadConfig("client.json");
+                EncodeUtil.setSecret(Global.config.getSecret());
 
                 client.run();
 
             } else if (Objects.equals(args[0], "server")) {
                 loadConfig("server.json");
+                EncodeUtil.setSecret(Global.config.getSecret());
 
                 Thread t = new Thread(udpServer);
                 t.start();
-                Thread ts = new Thread(server);
+                Thread ts = new Thread(nioServer);
                 ts.start();
 
                 ts.join();

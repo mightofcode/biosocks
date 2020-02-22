@@ -186,7 +186,6 @@ public class BioServer implements Runnable {
     @Override
     public void run() {
         try {
-            EncodeUtil.setSecret(Global.config.getSecret());
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
             serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(Global.config.getServer()), Global.config.getServerPort()));

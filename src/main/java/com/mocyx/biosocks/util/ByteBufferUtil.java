@@ -7,6 +7,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -33,7 +34,7 @@ public class ByteBufferUtil {
 
     static public void writeSmallString(ByteBuffer buffer, String s) {
         byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
-        buffer.put((byte) bytes.length);
+        buffer.putShort((short) bytes.length);
         buffer.put(bytes);
     }
 
@@ -41,6 +42,13 @@ public class ByteBufferUtil {
         byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
         buffer.putShort((short) bytes.length);
         buffer.put(bytes);
+    }
+
+    static public String readSmallString(ByteBuffer buffer) {
+        int len = buffer.getShort();
+        byte[] bytes = new byte[len];
+        buffer.get(bytes);
+        return new String(bytes);
     }
 
     static public void writeDataArr(ByteBuffer buffer, byte[] data) {
@@ -70,12 +78,12 @@ public class ByteBufferUtil {
 
     static public void writeAddr(ByteBuffer buffer, InetSocketAddress address) {
         ByteBufferUtil.writeLargeString(buffer, address.getHostString());
-        ByteBufferUtil.writePort(buffer, address.getPort());
+        buffer.putInt(address.getPort());
     }
 
     static public InetSocketAddress readAddr(ByteBuffer buffer) {
         String name = ByteBufferUtil.readLargeString(buffer);
-        int port = ByteBufferUtil.readPort(buffer);
+        int port = buffer.getInt();
         return new InetSocketAddress(name, port);
     }
 
