@@ -12,6 +12,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -36,11 +38,10 @@ public class ProxyServer implements Runnable {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
-                            System.currentTimeMillis();
 
                             ch.pipeline().addLast(new TunnelMsgDecoder());
 
-                            ch.pipeline().addLast(new TunnelRequestHandler(boss));
+                            ch.pipeline().addLast(new TunnelRequestHandler(worker));
 
                             ch.pipeline().addLast(new TunnelMsgEncoder());
 
@@ -51,7 +52,16 @@ public class ProxyServer implements Runnable {
 
                         }
                     });
-            ChannelFuture future = bootstrap.bind(Global.config.getServer(), Global.config.getServerPort()).sync();
+            ChannelFuture future = bootstrap.bind(Global.config.getServer(), Global.config.getServerPort());
+
+            future.addListener(new GenericFutureListener<Future<? super Void>>() {
+                @Override
+                public void operationComplete(Future<? super Void> future) throws Exception {
+                    System.currentTimeMillis();
+                }
+            });
+
+            future=future.sync();
             log.debug("bind port {} {} ", Global.config.getServer(), Global.config.getServerPort());
             future.channel().closeFuture().sync();
         } catch (Exception e) {

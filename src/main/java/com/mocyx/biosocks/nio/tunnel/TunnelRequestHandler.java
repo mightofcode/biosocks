@@ -9,6 +9,8 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -39,7 +41,8 @@ public class TunnelRequestHandler extends SimpleChannelInboundHandler<TunnelRequ
                     }
                 });
         log.info("tunnel request {} {}", ctx.channel().remoteAddress(), JSON.toJSONString(msg));
-        bootstrap.connect(msg.domain, msg.port).addListener(new ChannelFutureListener() {
+
+        ChannelFuture cf=bootstrap.connect(msg.domain, msg.port).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 log.info("remote connect {} {}", future.isSuccess(), future.channel().remoteAddress());
@@ -62,10 +65,23 @@ public class TunnelRequestHandler extends SimpleChannelInboundHandler<TunnelRequ
                     TunnelResponse response = new TunnelResponse();
                     response.setType((short) TunnelMsgType.RES_CONNECT_FAIL.getV());
                     ctx.channel().writeAndFlush(response).sync();
-                    ctx.channel().close();
+                    ChannelFuture closeFuture=ctx.channel().close();
+                    closeFuture.addListener(new GenericFutureListener<Future<? super Void>>() {
+                        @Override
+                        public void operationComplete(Future<? super Void> future) throws Exception {
+                            System.currentTimeMillis();
+                        }
+                    });
+
                 }
             }
         });
+//        cf.channel().close().addListener(new GenericFutureListener<Future<? super Void>>() {
+//            @Override
+//            public void operationComplete(Future<? super Void> future) throws Exception {
+//                System.currentTimeMillis();
+//            }
+//        });
 
     }
 }

@@ -3,9 +3,12 @@ package com.mocyx.biosocks.nio.handler;
 
 import com.mocyx.biosocks.util.EncodeUtil;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -32,7 +35,15 @@ public class DataTransferHandler extends ChannelInboundHandlerAdapter {
 
             ByteBuf outBuffer = ctx.alloc().buffer();
             outBuffer.writeBytes(data);
-            remoteChannel.writeAndFlush(outBuffer);
+            ChannelFuture f=remoteChannel.writeAndFlush(outBuffer);
+
+            f.addListener(new GenericFutureListener<Future<? super Void>>() {
+                @Override
+                public void operationComplete(Future<? super Void> future) throws Exception {
+                    System.currentTimeMillis();
+                }
+            });
+
         } else {
             remoteChannel.writeAndFlush(msg);
         }
