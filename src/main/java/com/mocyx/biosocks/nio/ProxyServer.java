@@ -5,6 +5,7 @@ import com.mocyx.biosocks.nio.tunnel.TunnelMsgDecoder;
 import com.mocyx.biosocks.nio.tunnel.TunnelMsgEncoder;
 import com.mocyx.biosocks.nio.tunnel.TunnelRequestHandler;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;

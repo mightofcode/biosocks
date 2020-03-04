@@ -27,6 +27,7 @@ public class DataTransferHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
+
             log.debug("transfer data {}", buf.readableBytes());
 
             byte[] data = new byte[buf.readableBytes()];
@@ -35,15 +36,9 @@ public class DataTransferHandler extends ChannelInboundHandlerAdapter {
 
             ByteBuf outBuffer = ctx.alloc().buffer();
             outBuffer.writeBytes(data);
-            ChannelFuture f=remoteChannel.writeAndFlush(outBuffer);
+            remoteChannel.writeAndFlush(outBuffer);
 
-            f.addListener(new GenericFutureListener<Future<? super Void>>() {
-                @Override
-                public void operationComplete(Future<? super Void> future) throws Exception {
-                    System.currentTimeMillis();
-                }
-            });
-
+            buf.release();
         } else {
             remoteChannel.writeAndFlush(msg);
         }
