@@ -16,7 +16,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  *
  * curl http://www.baidu.com/
  * curl --socks5-hostname localhost:9101 http://www.baidu.com/
- *
+ * curl --socks5-hostname localhost:9713 http://www.baidu.com/
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest
