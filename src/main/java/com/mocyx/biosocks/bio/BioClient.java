@@ -10,11 +10,13 @@ import com.mocyx.biosocks.bio.protocol.SocksProtocol.SocksShakeResponseDto;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelResponse;
+import com.mocyx.biosocks.domain.PorxyStatService;
 import com.mocyx.biosocks.util.BioUtil;
 import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
 
 import com.mocyx.biosocks.util.EncodeUtil;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Component;
@@ -35,12 +37,14 @@ import java.nio.channels.SocketChannel;
 public class BioClient implements Runnable {
 
     private ConfigDto configDto;
-    public BioClient(ConfigDto configDto){
-        this.configDto=configDto;
+    private PorxyStatService porxyStatService;
+
+    public BioClient(ConfigDto configDto) {
+        this.configDto = configDto;
+        porxyStatService = new PorxyStatService();
     }
 
-
-    static void closePipe(Pipe pipe) {
+    void closePipe(Pipe pipe) {
 
         try {
             synchronized (pipe) {
@@ -50,6 +54,7 @@ public class BioClient implements Runnable {
                 if (pipe.remote != null) {
                     pipe.remote.close();
                 }
+                porxyStatService.onClose(pipe.host, pipe.port);
             }
 
         } catch (Exception e) {
@@ -64,7 +69,6 @@ public class BioClient implements Runnable {
 
         public UpStreamWorkerA(Pipe pipe) {
             this.pipe = pipe;
-
         }
 
         private void handleShake() throws IOException {
@@ -156,6 +160,8 @@ public class BioClient implements Runnable {
                 EncodeUtil.simpleXorEncrypt(inBuffer.array(), 0, inBuffer.limit());
 
                 BioUtil.write(pipe.remote, inBuffer);
+
+                porxyStatService.onUp(pipe.host, pipe.port, (long) n);
             }
         }
 
@@ -179,9 +185,16 @@ public class BioClient implements Runnable {
             if (request.getAtyp() == 0x01) {
                 log.info("tunnel connect {} {}", request.getAddr().toString(), request.getPort());
                 sendConnectRequest(pipe, request.getAddr().getHostAddress(), request.getPort());
+                pipe.setHost(request.getDomain());
+                pipe.setPort((long) request.getPort());
+                porxyStatService.onOpen(request.getDomain(), (long) request.getPort());
+
             } else if (request.getAtyp() == 0x03) {
                 log.info("tunnel connect {} {}", request.getDomain(), request.getPort());
                 sendConnectRequest(pipe, request.getDomain(), request.getPort());
+                pipe.setHost(request.getDomain());
+                pipe.setPort((long) request.getPort());
+                porxyStatService.onOpen(request.getDomain(), (long) request.getPort());
             }
             waitForConnectResult();
         }
@@ -192,11 +205,11 @@ public class BioClient implements Runnable {
                 SocketChannel remote = SocketChannel.open();
 
                 try {
-                    InetSocketAddress address = new InetSocketAddress(configDto.getServer(),configDto.getServerPort());
+                    InetSocketAddress address = new InetSocketAddress(configDto.getServer(), configDto.getServerPort());
                     remote.socket().connect(address, 5000);
                 } catch (Exception e) {
                     log.warn("connect fail", e);
-                    throw new ProxyException(String.format("连接远程服务器失败 %s %d",configDto.getServer(),configDto.getServerPort()));
+                    throw new ProxyException(String.format("连接远程服务器失败 %s %d", configDto.getServer(), configDto.getServerPort()));
                 }
 
                 pipe.remote = remote;
@@ -237,6 +250,7 @@ public class BioClient implements Runnable {
                     EncodeUtil.simpleXorEncrypt(buffer.array(), 0, buffer.limit());
 
                     BioUtil.write(pipe.local, buffer);
+                    porxyStatService.onDown(pipe.host, pipe.port, (long) n);
                 }
             } catch (ClosedChannelException e) {
                 log.debug("channel closed {}", e.getMessage());
@@ -249,7 +263,10 @@ public class BioClient implements Runnable {
         }
     }
 
+    @Data
     private class Pipe {
+        String host = "";
+        Long port = 0L;
         SocketChannel local;
         SocketChannel remote;
     }
