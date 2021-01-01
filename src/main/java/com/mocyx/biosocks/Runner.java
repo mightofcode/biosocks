@@ -21,27 +21,29 @@ import java.util.Objects;
 @Slf4j
 public class Runner implements CommandLineRunner {
 
+//
+//    @Autowired
+//    private BioClient client;
+//    @Autowired
+//    private BioServer server;
+//
+//    @Autowired
+//    private UdpServer udpServer;
+//
+//    @Autowired
+//    private ProxyServer nioServer;
 
-    @Autowired
-    private BioClient client;
-    @Autowired
-    private BioServer server;
 
-    @Autowired
-    private UdpServer udpServer;
-
-    @Autowired
-    private ProxyServer nioServer;
-
-
-    private void loadConfig(String path) {
+    private ConfigDto loadConfig(String path) {
         try {
             String str = FileUtils.readFileToString(new File(path), "utf-8");
-            Global.config = JSON.parseObject(str, ConfigDto.class);
+            ConfigDto config = JSON.parseObject(str, ConfigDto.class);
+            return config;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             System.exit(0);
         }
+        return null;
     }
 
     @Override
@@ -51,20 +53,19 @@ public class Runner implements CommandLineRunner {
         }
         try {
             if (Objects.equals(args[0], "client")) {
-                loadConfig("client.json");
-                EncodeUtil.setSecret(Global.config.getSecret());
-
-                client.run();
-
-            } else if (Objects.equals(args[0], "server")) {
-                loadConfig("server.json");
-                EncodeUtil.setSecret(Global.config.getSecret());
-
-                Thread t = new Thread(udpServer);
+                ConfigDto configDto = loadConfig("client.json");
+                EncodeUtil.setSecret(configDto.getSecret());
+                BioClient client = new BioClient(configDto);
+                Thread t = new Thread(client);
                 t.start();
-                Thread ts = new Thread(nioServer);
+                t.join();
+            } else if (Objects.equals(args[0], "server")) {
+                ConfigDto configDto = loadConfig("server.json");
+                EncodeUtil.setSecret(configDto.getSecret());
+                Thread t = new Thread(new UdpServer(configDto));
+                t.start();
+                Thread ts = new Thread(new ProxyServer(configDto));
                 ts.start();
-
                 ts.join();
                 t.join();
             }

@@ -28,8 +28,13 @@ import java.nio.channels.UnresolvedAddressException;
  * @author Administrator
  */
 @Slf4j
-@Component
 public class BioServer implements Runnable {
+
+    private ConfigDto configDto;
+    public BioServer(ConfigDto configDto){
+        this.configDto=configDto;
+    }
+
     static void closeTunnel(Tunnel tunnel) {
         try {
             synchronized (tunnel) {
@@ -189,7 +194,7 @@ public class BioServer implements Runnable {
         try {
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
-            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(Global.config.getServer()), Global.config.getServerPort()));
+            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(configDto.getServer()),configDto.getServerPort()));
             log.info("tcp listen on {}", serverSocketChannel.getLocalAddress());
             while (true) {
                 SocketChannel socketChannel = serverSocketChannel.accept();

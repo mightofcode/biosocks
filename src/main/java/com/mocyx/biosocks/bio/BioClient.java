@@ -32,8 +32,13 @@ import java.nio.channels.SocketChannel;
  * @author Administrator
  */
 @Slf4j
-@Component
 public class BioClient implements Runnable {
+
+    private ConfigDto configDto;
+    public BioClient(ConfigDto configDto){
+        this.configDto=configDto;
+    }
+
 
     static void closePipe(Pipe pipe) {
 
@@ -187,11 +192,11 @@ public class BioClient implements Runnable {
                 SocketChannel remote = SocketChannel.open();
 
                 try {
-                    InetSocketAddress address = new InetSocketAddress(Global.config.getServer(), Global.config.getServerPort());
+                    InetSocketAddress address = new InetSocketAddress(configDto.getServer(),configDto.getServerPort());
                     remote.socket().connect(address, 5000);
                 } catch (Exception e) {
                     log.warn("connect fail", e);
-                    throw new ProxyException(String.format("连接远程服务器失败 %s %d", Global.config.getServer(), Global.config.getServerPort()));
+                    throw new ProxyException(String.format("连接远程服务器失败 %s %d",configDto.getServer(),configDto.getServerPort()));
                 }
 
                 pipe.remote = remote;
@@ -256,7 +261,7 @@ public class BioClient implements Runnable {
         try {
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(true);
-            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(Global.config.getClient()), Global.config.getClientPort()));
+            serverSocketChannel.bind(new InetSocketAddress(Inet4Address.getByName(this.configDto.getClient()), this.configDto.getClientPort()));
             log.info("tcp listen on {}", serverSocketChannel.getLocalAddress());
             while (true) {
                 SocketChannel socketChannel = serverSocketChannel.accept();

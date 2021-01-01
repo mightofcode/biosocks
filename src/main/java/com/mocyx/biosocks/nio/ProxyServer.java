@@ -1,5 +1,6 @@
 package com.mocyx.biosocks.nio;
 
+import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.Global;
 import com.mocyx.biosocks.nio.tunnel.TunnelMsgDecoder;
 import com.mocyx.biosocks.nio.tunnel.TunnelMsgEncoder;
@@ -22,9 +23,13 @@ import org.springframework.stereotype.Component;
  * @author Administrator
  */
 @Slf4j
-@Component
 public class ProxyServer implements Runnable {
 
+    private ConfigDto configDto;
+
+    public ProxyServer(ConfigDto configDto) {
+        this.configDto = configDto;
+    }
 
     @Override
     public void run() {
@@ -53,7 +58,7 @@ public class ProxyServer implements Runnable {
 
                         }
                     });
-            ChannelFuture future = bootstrap.bind(Global.config.getServer(), Global.config.getServerPort());
+            ChannelFuture future = bootstrap.bind(configDto.getServer(), configDto.getServerPort());
 
             future.addListener(new GenericFutureListener<Future<? super Void>>() {
                 @Override
@@ -62,8 +67,8 @@ public class ProxyServer implements Runnable {
                 }
             });
 
-            future=future.sync();
-            log.debug("bind port {} {} ", Global.config.getServer(), Global.config.getServerPort());
+            future = future.sync();
+            log.debug("bind port {} {} ", configDto.getServer(), configDto.getServerPort());
             future.channel().closeFuture().sync();
         } catch (Exception e) {
             log.error(e.getMessage(), e);

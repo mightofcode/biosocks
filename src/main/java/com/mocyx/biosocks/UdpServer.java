@@ -25,11 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Administrator
  */
 @Slf4j
-@Component
 public class UdpServer implements Runnable {
 
     private ConfigDto configDto;
     private UdpTunnel udpTunnel;
+
+    public UdpServer(ConfigDto configDto){
+        this.configDto=configDto;
+    }
 
     @Data
     private static class Pipe {
@@ -139,8 +142,8 @@ public class UdpServer implements Runnable {
     @Override
     public void run() {
         try {
-            String str = FileUtils.readFileToString(new File("server.json"), "utf-8");
-            configDto = JSON.parseObject(str, ConfigDto.class);
+//            String str = FileUtils.readFileToString(new File("server.json"), "utf-8");
+//            configDto = JSON.parseObject(str, ConfigDto.class);
 
 
             DatagramChannel datagramChannel = DatagramChannel.open();
@@ -190,7 +193,6 @@ public class UdpServer implements Runnable {
                     } catch (IOException e) {
                         log.error("fail write udp to remote {}", pipe.key, e);
                     }
-
                 }
             }
 

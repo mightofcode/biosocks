@@ -1,6 +1,7 @@
 package com.mocyx.biosocks.nio.handler;
 
 
+import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.Global;
 import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.nio.NioUtil;
@@ -22,8 +23,10 @@ public class Socks5CommandRequestHandler extends SimpleChannelInboundHandler<Def
 
     EventLoopGroup bossGroup;
 
-    public Socks5CommandRequestHandler(EventLoopGroup bossGroup) {
+    private ConfigDto configDto;
+    public Socks5CommandRequestHandler(EventLoopGroup bossGroup,ConfigDto configDto) {
         this.bossGroup = bossGroup;
+        this.configDto=configDto;
     }
 
     @Override
@@ -51,7 +54,7 @@ public class Socks5CommandRequestHandler extends SimpleChannelInboundHandler<Def
             tunnelDto.setRemotePort(msg.dstPort());
 
             log.debug("连接目标服务器");
-            ChannelFuture future = bootstrap.connect(Global.config.getServer(), Global.config.getServerPort());
+            ChannelFuture future = bootstrap.connect(this.configDto.getServer(), this.configDto.getServerPort());
             future.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
