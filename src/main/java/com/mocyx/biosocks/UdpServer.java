@@ -142,10 +142,6 @@ public class UdpServer implements Runnable {
     @Override
     public void run() {
         try {
-//            String str = FileUtils.readFileToString(new File("server.json"), "utf-8");
-//            configDto = JSON.parseObject(str, ConfigDto.class);
-
-
             DatagramChannel datagramChannel = DatagramChannel.open();
             datagramChannel.bind(new InetSocketAddress(configDto.getServer(), configDto.getServerPort()));
             datagramChannel.configureBlocking(true);

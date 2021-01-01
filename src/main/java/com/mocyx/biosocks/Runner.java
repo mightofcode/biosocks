@@ -21,19 +21,6 @@ import java.util.Objects;
 @Slf4j
 public class Runner implements CommandLineRunner {
 
-//
-//    @Autowired
-//    private BioClient client;
-//    @Autowired
-//    private BioServer server;
-//
-//    @Autowired
-//    private UdpServer udpServer;
-//
-//    @Autowired
-//    private ProxyServer nioServer;
-
-
     private ConfigDto loadConfig(String path) {
         try {
             String str = FileUtils.readFileToString(new File(path), "utf-8");
