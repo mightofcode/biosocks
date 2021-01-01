@@ -70,21 +70,22 @@ public class PorxyStatService {
                         datas.sort(new Comparator<ProxyStat>() {
                             @Override
                             public int compare(ProxyStat o1, ProxyStat o2) {
-                                String k1 = String.format("%s %s", o1.getRemote(), o1.getRemotePort());
-                                String k2 = String.format("%s %s", o1.getRemote(), o1.getRemotePort());
-                                return k1.compareTo(k2);
+                                return -o1.getDownInSec().compareTo(o2.getDownInSec());
                             }
                         });
                         //
                         StringBuilder sb = new StringBuilder();
                         sb.append("\ndump start\n");
                         for (ProxyStat s : datas) {
-                            String line = String.format("%s %s %sB %sB %sB/s %sB/s\n",
-                                    s.getRemote(), s.getRemotePort(), s.getByteUp(),
-                                    s.getByteDown(), s.getUpInSec(), s.getDownInSec());
-                            sb.append(line);
-                            s.setDownInSec(0L);
-                            s.setUpInSec(0L);
+                            if (s.getDownInSec() != 0 || s.getUpInSec() != 0) {
+                                String line = String.format("%s %s up %sKB %sKB/s down %sKB/s %sKB/s\n",
+                                        s.getRemote(), s.getRemotePort(),
+                                        s.getByteUp() / 1024, s.getUpInSec() / 1024,
+                                        s.getByteDown() / 1024, s.getDownInSec() / 1024);
+                                sb.append(line);
+                                s.setDownInSec(0L);
+                                s.setUpInSec(0L);
+                            }
                         }
                         sb.append("dump end");
                         log.info(sb.toString());

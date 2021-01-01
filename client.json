@@ -1,7 +1,10 @@
 {
-  "server": "0.0.0.0",
-  "serverPort": 9501,
+  "server1": "47.240.34.185",
+  "server2": "124.156.168.108",
+
+  "server": "47.240.34.185",
+  "serverPort": 9601,
   "client": "0.0.0.0",
-  "clientPort": 9201,
-  "secret": "123456"
+  "clientPort": 9101,
+  "secret":"123456"
 }
