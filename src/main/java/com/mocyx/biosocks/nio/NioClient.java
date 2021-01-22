@@ -178,7 +178,9 @@ public class NioClient implements Runnable {
             buffer = pipe.getRemoteOutBuffer();
         }
         while (buffer.hasRemaining()) {
-            int n = channel.write(buffer);
+            int n = 0;
+            n = channel.write(buffer);
+
             log.debug("tryFlushWrite write {}", n);
             if (n <= 0) {
                 log.warn("write fail");
@@ -325,18 +327,27 @@ public class NioClient implements Runnable {
                 for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
                     SelectionKey key = (SelectionKey) it.next();
                     it.remove();
+                    ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(key.channel(), "pipe");
                     if (key.isValid()) {
-                        if (key.isAcceptable()) {
-                            doAccept((ServerSocketChannel) key.channel());
-                        } else if (key.isReadable()) {
-                            doRead((SocketChannel) key.channel());
-                        } else if (key.isConnectable()) {
-                            doConnect((SocketChannel) key.channel());
-                            System.currentTimeMillis();
-                        } else if (key.isWritable()) {
-                            doWrite((SocketChannel) key.channel());
-                            System.currentTimeMillis();
+                        try {
+                            if (key.isAcceptable()) {
+                                doAccept((ServerSocketChannel) key.channel());
+                            } else if (key.isReadable()) {
+                                doRead((SocketChannel) key.channel());
+                            } else if (key.isConnectable()) {
+                                doConnect((SocketChannel) key.channel());
+                                System.currentTimeMillis();
+                            } else if (key.isWritable()) {
+                                doWrite((SocketChannel) key.channel());
+                                System.currentTimeMillis();
+                            }
+                        } catch (Exception e) {
+                            log.error(e.getMessage(), e);
+                            if (pipe != null) {
+                                closePipe(pipe);
+                            }
                         }
+
                     }
                 }
             }
