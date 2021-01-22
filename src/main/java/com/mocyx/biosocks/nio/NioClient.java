@@ -192,14 +192,20 @@ public class NioClient implements Runnable {
         return (SelectionKey) objAttrUtil.getAttr(channel, "key");
     }
 
-    private void doConnect(SocketChannel socketChannel) throws IOException {
+    private void doConnect(SocketChannel socketChannel) {
         System.out.println("doConnect");
         //
         String type = (String) objAttrUtil.getAttr(socketChannel, "type");
         ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe");
         SelectionKey key = (SelectionKey) objAttrUtil.getAttr(socketChannel, "key");
         if (type.equals("remote")) {
-            boolean b1 = socketChannel.finishConnect();
+            try {
+                boolean b1 = socketChannel.finishConnect();
+            } catch (IOException e) {
+                closePipe((ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe"));
+                log.warn("connect cloud fail");
+                return;
+            }
             key.interestOps(SelectionKey.OP_READ);
             TunnelRequest request = new TunnelRequest();
             //
