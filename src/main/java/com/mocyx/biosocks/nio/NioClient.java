@@ -61,11 +61,12 @@ public class NioClient implements Runnable {
         System.out.println("doAccept");
         SocketChannel channel = serverChannel.accept();
         channel.configureBlocking(false);
-        channel.register(selector, SelectionKey.OP_READ);
+        SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
         ClientPipe clientPipe = new ClientPipe();
         clientPipe.setLocalChannel(channel);
         objAttrUtil.setAttr(channel, "type", "local");
         objAttrUtil.setAttr(channel, "pipe", clientPipe);
+        objAttrUtil.setAttr(channel, "key", key);
         System.currentTimeMillis();
     }
 
@@ -99,7 +100,8 @@ public class NioClient implements Runnable {
             //
             InetSocketAddress address = new InetSocketAddress(configDto.getServer(),
                     configDto.getServerPort());
-            remote.register(selector, SelectionKey.OP_CONNECT);
+            SelectionKey key = remote.register(selector, SelectionKey.OP_CONNECT);
+            objAttrUtil.setAttr(remote, "key", key);
             boolean b1 = remote.connect(address);
             System.currentTimeMillis();
         } else if (pipe.state == Socks5State.transfer) {
@@ -170,9 +172,11 @@ public class NioClient implements Runnable {
             if (n <= 0) {
                 log.warn("write fail");
                 //
-                channel.register(selector, SelectionKey.OP_WRITE);
+                SelectionKey key = (SelectionKey) objAttrUtil.getAttr(channel, "key");
+                key.interestOps(SelectionKey.OP_WRITE);
                 //关闭写来源
-                pipe.otherChannel(channel).register(selector, 0);
+                SocketChannel otherChannel = pipe.otherChannel(channel);
+                getKey(otherChannel).interestOps(0);
                 System.currentTimeMillis();
                 buffer.compact();
                 //buffer.flip();
@@ -183,14 +187,20 @@ public class NioClient implements Runnable {
         return true;
     }
 
+    private SelectionKey getKey(SocketChannel channel) {
+
+        return (SelectionKey) objAttrUtil.getAttr(channel, "key");
+    }
+
     private void doConnect(SocketChannel socketChannel) throws IOException {
         System.out.println("doConnect");
         //
         String type = (String) objAttrUtil.getAttr(socketChannel, "type");
         ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe");
+        SelectionKey key = (SelectionKey) objAttrUtil.getAttr(socketChannel, "key");
         if (type.equals("remote")) {
             boolean b1 = socketChannel.finishConnect();
-            socketChannel.register(selector, SelectionKey.OP_READ);
+            key.interestOps(SelectionKey.OP_READ);
             TunnelRequest request = new TunnelRequest();
             //
             request.setDomain(pipe.getTargetAddr().getHostString());
@@ -211,8 +221,12 @@ public class NioClient implements Runnable {
         boolean flushed = tryFlushWrite(pipe, socketChannel);
         if (flushed) {
             SocketChannel other = pipe.otherChannel(socketChannel);
-            socketChannel.register(selector, SelectionKey.OP_READ);
-            other.register(selector, SelectionKey.OP_READ);
+            //
+            SelectionKey key1 = (SelectionKey) objAttrUtil.getAttr(socketChannel, "key");
+            key1.interestOps(SelectionKey.OP_READ);
+            //
+            SelectionKey key2 = (SelectionKey) objAttrUtil.getAttr(other, "key");
+            key2.interestOps(SelectionKey.OP_READ);
         }
     }
 
@@ -289,21 +303,24 @@ public class NioClient implements Runnable {
             serverChannel.socket().bind(new InetSocketAddress(configDto.getClient(), configDto.getClientPort()));
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
+
             while (selector.select() > 0) {
                 log.info("handle select");
                 for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
                     SelectionKey key = (SelectionKey) it.next();
                     it.remove();
-                    if (key.isAcceptable()) {
-                        doAccept((ServerSocketChannel) key.channel());
-                    } else if (key.isReadable()) {
-                        doRead((SocketChannel) key.channel());
-                    } else if (key.isConnectable()) {
-                        doConnect((SocketChannel) key.channel());
-                        System.currentTimeMillis();
-                    } else if (key.isWritable()) {
-                        doWrite((SocketChannel) key.channel());
-                        System.currentTimeMillis();
+                    if (key.isValid()) {
+                        if (key.isAcceptable()) {
+                            doAccept((ServerSocketChannel) key.channel());
+                        } else if (key.isReadable()) {
+                            doRead((SocketChannel) key.channel());
+                        } else if (key.isConnectable()) {
+                            doConnect((SocketChannel) key.channel());
+                            System.currentTimeMillis();
+                        } else if (key.isWritable()) {
+                            doWrite((SocketChannel) key.channel());
+                            System.currentTimeMillis();
+                        }
                     }
                 }
             }
