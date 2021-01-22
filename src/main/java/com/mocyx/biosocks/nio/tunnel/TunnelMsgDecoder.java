@@ -2,7 +2,7 @@ package com.mocyx.biosocks.nio.tunnel;
 
 
 import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.TunnelMsgType;
+import com.mocyx.biosocks.bio.protocol.TunnelMsgType;
 import com.mocyx.biosocks.nio.ByteBuffUtil;
 import com.mocyx.biosocks.util.EncodeUtil;
 import io.netty.buffer.ByteBuf;

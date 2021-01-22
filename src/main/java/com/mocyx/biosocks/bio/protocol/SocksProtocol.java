@@ -12,6 +12,14 @@ import java.nio.ByteBuffer;
  */
 @Slf4j
 public class SocksProtocol {
+
+    public enum Socks5State {
+        shake,
+        connect,
+        transfer
+    }
+
+
     @Data
     public static class SocksShakeRequestDto {
         byte ver;
@@ -63,7 +71,7 @@ public class SocksProtocol {
         String domain;
         short port;
 
-        public static SocksConnectRequestDto tryRead(ByteBuffer buffer)  {
+        public static SocksConnectRequestDto tryRead(ByteBuffer buffer) {
             if (buffer.remaining() < 4) {
                 return null;
             }

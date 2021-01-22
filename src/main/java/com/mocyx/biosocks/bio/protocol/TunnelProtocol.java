@@ -1,11 +1,9 @@
 package com.mocyx.biosocks.bio.protocol;
 
 
-import com.mocyx.biosocks.TunnelMsgType;
 import com.mocyx.biosocks.util.ByteBufferUtil;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.Data;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.ByteBuffer;
@@ -24,7 +22,6 @@ public class TunnelProtocol {
         int port;
 
         public void write(ByteBuffer buffer) {
-
             int oldPos = buffer.position();
             buffer.putShort((short) 0);
             buffer.putShort(type);
@@ -33,9 +30,7 @@ public class TunnelProtocol {
                 buffer.putInt(port);
             }
             short len = (short) ((buffer.position() - oldPos) - 2);
-
             EncodeUtil.simpleXorEncrypt(buffer.array(), oldPos + 2, len);
-
             buffer.putShort(oldPos, len);
         }
 

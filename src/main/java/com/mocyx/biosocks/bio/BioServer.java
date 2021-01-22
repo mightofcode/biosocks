@@ -1,9 +1,7 @@
 package com.mocyx.biosocks.bio;
 
-import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.Global;
-import com.mocyx.biosocks.TunnelMsgType;
-import com.mocyx.biosocks.bio.protocol.TunnelProtocol;
+import com.mocyx.biosocks.bio.protocol.TunnelMsgType;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.bio.protocol.TunnelProtocol.TunnelResponse;
 import com.mocyx.biosocks.util.BioUtil;
@@ -11,10 +9,7 @@ import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.exception.ProxyException;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FileUtils;
-import org.springframework.stereotype.Component;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;

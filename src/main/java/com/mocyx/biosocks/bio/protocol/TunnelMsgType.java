@@ -1,4 +1,4 @@
-package com.mocyx.biosocks;
+package com.mocyx.biosocks.bio.protocol;
 
 
 import lombok.Getter;
