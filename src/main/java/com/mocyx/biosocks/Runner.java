@@ -3,6 +3,7 @@ package com.mocyx.biosocks;
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.bio.BioClient;
 import com.mocyx.biosocks.bio.BioServer;
+import com.mocyx.biosocks.nio.NioClient;
 import com.mocyx.biosocks.nio.ProxyServer;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +43,7 @@ public class Runner implements CommandLineRunner {
             if (Objects.equals(args[0], "client")) {
                 ConfigDto configDto = loadConfig("client.json");
                 EncodeUtil.setSecret(configDto.getSecret());
-                BioClient client = new BioClient(configDto);
+                NioClient client = new NioClient(configDto);
                 Thread t = new Thread(client);
                 t.start();
                 t.join();

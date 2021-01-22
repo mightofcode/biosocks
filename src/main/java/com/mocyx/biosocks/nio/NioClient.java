@@ -34,7 +34,6 @@ public class NioClient implements Runnable {
 
     private ObjAttrUtil objAttrUtil = new ObjAttrUtil();
 
-    //private ConcurrentHashMap<String, ClientChannel> clientChannels = new ConcurrentHashMap<>();
 
     @Data
     static class ClientPipe {
@@ -58,7 +57,6 @@ public class NioClient implements Runnable {
     }
 
     private void doAccept(ServerSocketChannel serverChannel) throws IOException {
-        System.out.println("doAccept");
         SocketChannel channel = serverChannel.accept();
         channel.configureBlocking(false);
         SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
@@ -168,7 +166,7 @@ public class NioClient implements Runnable {
         }
         while (buffer.hasRemaining()) {
             int n = channel.write(buffer);
-            log.info("tryFlushWrite write {}", n);
+            log.debug("tryFlushWrite write {}", n);
             if (n <= 0) {
                 log.warn("write fail");
                 //
@@ -193,7 +191,7 @@ public class NioClient implements Runnable {
     }
 
     private void doConnect(SocketChannel socketChannel) {
-        System.out.println("doConnect");
+
         //
         String type = (String) objAttrUtil.getAttr(socketChannel, "type");
         ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe");
@@ -206,6 +204,7 @@ public class NioClient implements Runnable {
                 log.warn("connect cloud fail");
                 return;
             }
+            log.info("connect {}", pipe.targetAddr);
             key.interestOps(SelectionKey.OP_READ);
             TunnelRequest request = new TunnelRequest();
             //
@@ -222,7 +221,7 @@ public class NioClient implements Runnable {
     }
 
     private void doWrite(SocketChannel socketChannel) throws IOException {
-        System.out.println("doWrite");
+
         ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe");
         boolean flushed = tryFlushWrite(pipe, socketChannel);
         if (flushed) {
@@ -240,6 +239,7 @@ public class NioClient implements Runnable {
         objAttrUtil.delObj(pipe.localChannel);
         objAttrUtil.delObj(pipe.remoteChannel);
 
+        log.info("close {}", pipe.targetAddr);
         if (pipe.getLocalChannel() != null) {
             try {
                 pipe.getLocalChannel().close();
@@ -257,7 +257,6 @@ public class NioClient implements Runnable {
     }
 
     private void doRead(SocketChannel socketChannel) {
-        System.out.println("doRead");
         //
         String type = (String) objAttrUtil.getAttr(socketChannel, "type");
         ClientPipe pipe = (ClientPipe) objAttrUtil.getAttr(socketChannel, "pipe");
@@ -279,14 +278,14 @@ public class NioClient implements Runnable {
         int readCount = 0;
         try {
             readCount = socketChannel.read(inBuffer);
-            log.info("readCount {}", readCount);
+            log.debug("readCount {}", readCount);
         } catch (IOException e) {
             closePipe(pipe);
             e.printStackTrace();
             return;
         }
         if (readCount == -1) {
-            log.warn("read -1");
+            log.debug("read -1");
             closePipe(pipe);
         } else {
             inBuffer.flip();
@@ -302,16 +301,14 @@ public class NioClient implements Runnable {
     @Override
     public void run() {
         try {
-            System.out.println("NIOServer start");
             selector = Selector.open();
             ServerSocketChannel serverChannel = ServerSocketChannel.open();
             serverChannel.configureBlocking(false);
             serverChannel.socket().bind(new InetSocketAddress(configDto.getClient(), configDto.getClientPort()));
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-
             while (selector.select() > 0) {
-                log.info("handle select");
+                log.debug("handle select");
                 for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
                     SelectionKey key = (SelectionKey) it.next();
                     it.remove();
