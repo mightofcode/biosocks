@@ -30,8 +30,8 @@ public class UdpServer implements Runnable {
     private ConfigDto configDto;
     private UdpTunnel udpTunnel;
 
-    public UdpServer(ConfigDto configDto){
-        this.configDto=configDto;
+    public UdpServer(ConfigDto configDto) {
+        this.configDto = configDto;
     }
 
     @Data

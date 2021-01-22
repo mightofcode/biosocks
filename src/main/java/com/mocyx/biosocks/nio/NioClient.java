@@ -1,5 +1,6 @@
 package com.mocyx.biosocks.nio;
 
+import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.bio.protocol.SocksProtocol;
 import com.mocyx.biosocks.bio.protocol.SocksProtocol.*;
@@ -12,6 +13,7 @@ import com.mocyx.biosocks.util.ObjAttrUtil;
 import lombok.Data;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -92,6 +94,11 @@ public class NioClient implements Runnable {
             objAttrUtil.setAttr(remote, "pipe", pipe);
             remote.configureBlocking(false);
             //
+            if (StringUtils.isEmpty(connectRequestDto.getDomain())) {
+                log.warn("host is empty {}", JSON.toJSONString(connectRequestDto));
+                closePipe(pipe);
+                return;
+            }
             InetSocketAddress targetAddr = new InetSocketAddress(connectRequestDto.getDomain(),
                     connectRequestDto.getPort());
             pipe.setTargetAddr(targetAddr);
