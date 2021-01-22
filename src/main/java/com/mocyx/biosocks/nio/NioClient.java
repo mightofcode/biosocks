@@ -119,8 +119,9 @@ public class NioClient implements Runnable {
     private void handleRemoteIn(ClientPipe pipe) {
         System.currentTimeMillis();
         ByteBuffer buffer = pipe.getRemoteInBuffer();
-        TunnelResponse response = TunnelResponse.tryRead(buffer);
+
         if (pipe.state == Socks5State.connect) {
+            TunnelResponse response = TunnelResponse.tryRead(buffer);
             SocksConnectResponseDto res = new SocksConnectResponseDto();
             res.setVer((byte) 0x05);
             res.setRsv((byte) 0x00);
@@ -233,7 +234,6 @@ public class NioClient implements Runnable {
                 e.printStackTrace();
             }
         }
-
     }
 
     private void doRead(SocketChannel socketChannel) {
@@ -259,6 +259,7 @@ public class NioClient implements Runnable {
         int readCount = 0;
         try {
             readCount = socketChannel.read(inBuffer);
+            log.info("readCount {}", readCount);
         } catch (IOException e) {
             closePipe(pipe);
             e.printStackTrace();
