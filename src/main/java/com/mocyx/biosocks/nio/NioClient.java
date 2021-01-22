@@ -94,12 +94,18 @@ public class NioClient implements Runnable {
             objAttrUtil.setAttr(remote, "pipe", pipe);
             remote.configureBlocking(false);
             //
-            if (StringUtils.isEmpty(connectRequestDto.getDomain())) {
+            String host = null;
+            if (!StringUtils.isEmpty(connectRequestDto.getDomain())) {
+                host = connectRequestDto.getDomain();
+            } else if (connectRequestDto.getAddr() != null) {
+                host = connectRequestDto.getAddr().getHostAddress();
+            }
+            if (StringUtils.isEmpty(host)) {
                 log.warn("host is empty {}", JSON.toJSONString(connectRequestDto));
                 closePipe(pipe);
                 return;
             }
-            InetSocketAddress targetAddr = new InetSocketAddress(connectRequestDto.getDomain(),
+            InetSocketAddress targetAddr = new InetSocketAddress(host,
                     connectRequestDto.getPort());
             pipe.setTargetAddr(targetAddr);
             //
