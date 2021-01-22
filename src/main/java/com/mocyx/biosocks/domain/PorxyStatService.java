@@ -3,6 +3,7 @@ package com.mocyx.biosocks.domain;
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.domain.entity.ProxyStat;
 import lombok.Data;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -60,47 +61,44 @@ public class PorxyStatService {
     }
 
     private class Printer implements Runnable {
+
         @Override
+        @SneakyThrows
         public void run() {
             while (true) {
-                try {
-                    Thread.sleep(1000);
-                    synchronized (PorxyStatService.this) {
-                        List<ProxyStat> datas = new ArrayList<>(stats.values());
-                        datas.sort(new Comparator<ProxyStat>() {
-                            @Override
-                            public int compare(ProxyStat o1, ProxyStat o2) {
-                                return -o1.getDownInSec().compareTo(o2.getDownInSec());
-                            }
-                        });
-                        //
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("\ndump start\n");
-                        for (ProxyStat s : datas) {
-                            if (s.getDownInSec() != 0 || s.getUpInSec() != 0) {
-                                String line = String.format("%s %s up %sKB %sKB/s down %sKB/s %sKB/s\n",
-                                        s.getRemote(), s.getRemotePort(),
-                                        s.getByteUp() / 1024, s.getUpInSec() / 1024,
-                                        s.getByteDown() / 1024, s.getDownInSec() / 1024);
-                                sb.append(line);
-                                s.setDownInSec(0L);
-                                s.setUpInSec(0L);
-                            }
+                Thread.sleep(1000);
+                synchronized (PorxyStatService.this) {
+                    List<ProxyStat> datas = new ArrayList<>(stats.values());
+                    datas.sort(new Comparator<ProxyStat>() {
+                        @Override
+                        public int compare(ProxyStat o1, ProxyStat o2) {
+                            return -o1.getDownInSec().compareTo(o2.getDownInSec());
                         }
-                        sb.append("dump end");
-                        log.info(sb.toString());
-                        //
-                        Iterator<Map.Entry<String, ProxyStat>> it = stats.entrySet().iterator();
-                        while (it.hasNext()) {
-                            Map.Entry<String, ProxyStat> pair = it.next();
-                            if (pair.getValue().getClosed()) {
-                                it.remove();
-                            }
+                    });
+                    //
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("\ndump start\n");
+                    int lineCount = 0;
+                    for (ProxyStat s : datas) {
+                        if (s.getDownInSec() != 0 || s.getUpInSec() != 0) {
+                            String line = String.format("%s %s up %sKB %sKB/s down %sKB/s %sKB/s\n",
+                                    s.getRemote(), s.getRemotePort(),
+                                    s.getByteUp() / 1024, s.getUpInSec() / 1024,
+                                    s.getByteDown() / 1024, s.getDownInSec() / 1024);
+                            sb.append(line);
+                            lineCount += 1;
+                            s.setDownInSec(0L);
+                            s.setUpInSec(0L);
                         }
                     }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    sb.append("dump end");
+                    if (lineCount > 0) {
+                        log.info(sb.toString());
+                    }
+                    //
+                    stats.entrySet().removeIf(pair -> pair.getValue().getClosed());
                 }
+
             }
         }
     }

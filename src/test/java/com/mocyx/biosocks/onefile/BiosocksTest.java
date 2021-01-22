@@ -50,7 +50,7 @@ public class BiosocksTest {
 
     @Test
     @SneakyThrows
-    public void foo() {
+    public void testBiosocks() {
         startClient();
         Thread t = startServer();
         t.join();
