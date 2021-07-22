@@ -347,7 +347,6 @@ public class NioClient implements Runnable {
                                 closePipe(pipe);
                             }
                         }
-
                     }
                 }
             }
