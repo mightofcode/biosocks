@@ -1,1 +1,1 @@
-java -jar ./target/biosocks-0.0.1.jar client
+java -jar ./target/biosocks-1.0.0.jar client
