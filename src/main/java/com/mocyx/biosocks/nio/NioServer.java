@@ -63,6 +63,7 @@ public class NioServer implements Runnable {
         private SocketChannel socketChannel;
         private ByteBuffer inBuffer = ByteBuffer.allocate(4 * 1024);
         private ByteBuffer outBuffer = ByteBuffer.allocate(8 * 1024);
+        private boolean outputOpen=true;
     }
 
     private Channel getChannelFromSocketChannel(SocketChannel socketChannel){
@@ -86,6 +87,30 @@ public class NioServer implements Runnable {
     }
 
     int pipeCount=0;
+    private void tryDisableOutput(Channel channel){
+        if(channel!=null&&channel.getSocketChannel()!=null&&channel.getOutBuffer().position()==0){
+            try {
+                channel.getSocketChannel().shutdownOutput();
+            }catch (Exception e){
+                log.error(e.getMessage(),e);
+            }
+        }
+    }
+    private void closeChannelInput(Channel channel){
+        Pipe pipe=channel.getPipe();
+        Channel other=pipe.otherChannel(channel);
+        if(channel.getType().equals("local")){
+            other.setOutputOpen(false);
+            tryDisableOutput(other);
+        }else {
+            other.setOutputOpen(false);
+            tryDisableOutput(other);
+        }
+        if(!pipe.getLocalChannel().isOutputOpen()&&!pipe.getRemoteChannel().isOutputOpen()){
+            closePipe(pipe);
+            tryDisableOutput(other);
+        }
+    }
     private void closePipe(Pipe pipe) {
         if(pipe==null){
             return;
@@ -131,7 +156,7 @@ public class NioServer implements Runnable {
         }
         if (readCount == -1) {
             log.debug("read -1");
-            closePipe(pipe);
+            closeChannelInput(channel);
         } else {
             inBuffer.flip();
             if (channel.getType().equals("local")) {
@@ -251,7 +276,7 @@ public class NioServer implements Runnable {
             n = channel.getSocketChannel().write(buffer);
             log.debug("tryFlushWrite write {}", n);
             if (n <= 0) {
-                log.warn("write fail {} {}",channel.getSocketChannel().getRemoteAddress(),pipe.getTargetAddr());
+                log.warn("write fail {} {} {} {}",buffer.remaining(),n,channel.getSocketChannel().getRemoteAddress(),pipe.getTargetAddr());
                 //
                 channel.getKey().interestOps(SelectionKey.OP_WRITE);
                 //关闭写来源
