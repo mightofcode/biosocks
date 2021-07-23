@@ -251,7 +251,7 @@ public class NioServer implements Runnable {
             n = channel.getSocketChannel().write(buffer);
             log.debug("tryFlushWrite write {}", n);
             if (n <= 0) {
-                log.warn("write fail");
+                log.warn("write fail {} {}",channel.getSocketChannel().getRemoteAddress(),pipe.getTargetAddr());
                 //
                 channel.getKey().interestOps(SelectionKey.OP_WRITE);
                 //关闭写来源
