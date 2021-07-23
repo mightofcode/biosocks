@@ -4,6 +4,7 @@ package com.mocyx.biosocks.onefile;
 import com.mocyx.biosocks.ConfigDto;
 import com.mocyx.biosocks.bio.BioClient;
 import com.mocyx.biosocks.nio.NioClient;
+import com.mocyx.biosocks.nio.NioServer;
 import com.mocyx.biosocks.nio.ProxyServer;
 import lombok.SneakyThrows;
 import org.junit.Test;
@@ -41,7 +42,7 @@ public class BiosocksTest {
         configDto.setServer("0.0.0.0");
         configDto.setServerPort(9714);
         configDto.setSecret("123456");
-        ProxyServer server = new ProxyServer(configDto);
+        NioServer server = new NioServer(configDto);
         Thread t = new Thread(server);
         t.start();
         return t;
