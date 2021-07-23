@@ -69,7 +69,7 @@ public class SocksProtocol {
          * atyp=0x3
          */
         String domain;
-        short port;
+        int port;
 
         public static SocksConnectRequestDto tryRead(ByteBuffer buffer) {
             if (buffer.remaining() < 4) {
@@ -87,7 +87,7 @@ public class SocksProtocol {
                     return null;
                 }
                 res.addr = ByteBufferUtil.readIpAddr(buffer);
-                res.port = (short) ByteBufferUtil.readPort(buffer);
+                res.port = ByteBufferUtil.readPort(buffer);
 
             } else if (res.atyp == 0x03) {
                 if (buffer.remaining() < 1) {
@@ -100,7 +100,7 @@ public class SocksProtocol {
                     return null;
                 }
                 res.domain = ByteBufferUtil.readString(buffer, len);
-                res.port = (short) ByteBufferUtil.readPort(buffer);
+                res.port =  ByteBufferUtil.readPort(buffer);
             } else {
                 throw new RuntimeException("atyp error");
             }

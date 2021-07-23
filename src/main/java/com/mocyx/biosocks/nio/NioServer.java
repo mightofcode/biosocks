@@ -20,7 +20,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 @Slf4j
 public class NioServer implements Runnable {
@@ -43,6 +45,7 @@ public class NioServer implements Runnable {
         private Channel remoteChannel;
         //
         private InetSocketAddress targetAddr;
+        private long lastActiveTime=System.currentTimeMillis();
         //
         private Channel otherChannel(Channel channel) {
             if (channel == localChannel) {
@@ -67,16 +70,22 @@ public class NioServer implements Runnable {
     }
 
     private Channel getChannelFromSocketChannel(SocketChannel socketChannel){
-        return (Channel) objAttrUtil.getAttr(socketChannel, "channel");
+        Channel channel= (Channel) objAttrUtil.getAttr(socketChannel, "channel");
+        Pipe pipe=channel.getPipe();
+        if(pipe!=null){
+            pipe.lastActiveTime=System.currentTimeMillis();
+        }
+        return channel;
     }
 
+    List<Pipe> pipes=new ArrayList<>();
     private void doAccept(ServerSocketChannel serverChannel) throws IOException {
         SocketChannel channel = serverChannel.accept();
-        log.info("accept {} {} {}",channel.getLocalAddress(),channel.getRemoteAddress(),pipeCount);
+        log.info("accept {} {} {}",channel.getLocalAddress(),channel.getRemoteAddress(),pipes.size());
         channel.configureBlocking(false);
         SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
         Pipe clientPipe = new Pipe();
-        pipeCount+=1;
+        pipes.add(clientPipe);
         Channel c=new Channel();
         c.setSocketChannel(channel);
         c.setType("local");
@@ -86,7 +95,6 @@ public class NioServer implements Runnable {
         objAttrUtil.setAttr(channel, "channel", c);
     }
 
-    int pipeCount=0;
     private void tryDisableOutput(Channel channel){
         if(channel!=null&&channel.getSocketChannel()!=null&&channel.getOutBuffer().position()==0){
             try {
@@ -97,28 +105,15 @@ public class NioServer implements Runnable {
         }
     }
     private void closeChannelInput(Channel channel){
-        Pipe pipe=channel.getPipe();
-        Channel other=pipe.otherChannel(channel);
-        if(channel.getType().equals("local")){
-            other.setOutputOpen(false);
-            tryDisableOutput(other);
-        }else {
-            other.setOutputOpen(false);
-            tryDisableOutput(other);
-        }
-        if(!pipe.getLocalChannel().isOutputOpen()&&!pipe.getRemoteChannel().isOutputOpen()){
-            closePipe(pipe);
-            tryDisableOutput(other);
-        }
+
     }
     private void closePipe(Pipe pipe) {
         if(pipe==null){
             return;
         }
-        pipeCount-=1;
         objAttrUtil.delObj(pipe.getLocalChannel().getSocketChannel());
         objAttrUtil.delObj(pipe.getRemoteChannel().getSocketChannel());
-        log.info("close {}", pipe.getTargetAddr());
+        log.info("close {} idle {}", pipe.getTargetAddr(),System.currentTimeMillis()-pipe.lastActiveTime);
         if (pipe.getLocalChannel() != null) {
             try {
                 pipe.getLocalChannel().getSocketChannel().close();
@@ -134,6 +129,7 @@ public class NioServer implements Runnable {
             }
         }
     }
+
     private void doRead(SocketChannel socketChannel) {
         //
         Channel channel=getChannelFromSocketChannel(socketChannel);
@@ -303,6 +299,16 @@ public class NioServer implements Runnable {
         }
     }
 
+    private void deleteIdlePipe(){
+        Iterator<Pipe> pipeIterator= pipes.iterator();
+        while (pipeIterator.hasNext()){
+            Pipe pipe=pipeIterator.next();
+            if(System.currentTimeMillis()-pipe.lastActiveTime>1000*120){
+                closePipe(pipe);
+                pipeIterator.remove();
+            }
+        }
+    }
     @Override
     public void run() {
 
@@ -314,8 +320,10 @@ public class NioServer implements Runnable {
             serverChannel.socket().bind(new InetSocketAddress(configDto.getServer(), configDto.getServerPort()));
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
             //
+            long tick=0;
             while (selector.select() > 0) {
                 log.debug("handle select");
+                tick+=1;
                 for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
                     SelectionKey key = (SelectionKey) it.next();
                     it.remove();
@@ -346,6 +354,9 @@ public class NioServer implements Runnable {
                             }
                         }
                     }
+                }
+                if(tick%100==0){
+                    deleteIdlePipe();
                 }
             }
             serverChannel.close();
