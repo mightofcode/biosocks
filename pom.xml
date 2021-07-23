@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.mocyx</groupId>
     <artifactId>biosocks</artifactId>
-    <version>0.0.2</version>
+    <version>1.0.0</version>
     <name>biosocks</name>
     <description>biosocks</description>
 
