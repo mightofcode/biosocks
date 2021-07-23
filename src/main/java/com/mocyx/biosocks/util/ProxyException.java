@@ -1,4 +1,4 @@
-package com.mocyx.biosocks.exception;
+package com.mocyx.biosocks.util;
 
 /**
  * @author Administrator

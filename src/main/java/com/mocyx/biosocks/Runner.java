@@ -1,14 +1,13 @@
 package com.mocyx.biosocks;
 
 import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.bio.BioClient;
-import com.mocyx.biosocks.bio.BioServer;
 import com.mocyx.biosocks.nio.NioClient;
-import com.mocyx.biosocks.nio.ProxyServer;
+import com.mocyx.biosocks.nio.NioServer;
+import com.mocyx.biosocks.udp.UdpServer;
+import com.mocyx.biosocks.util.ConfigDto;
 import com.mocyx.biosocks.util.EncodeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +51,7 @@ public class Runner implements CommandLineRunner {
                 EncodeUtil.setSecret(configDto.getSecret());
                 Thread t = new Thread(new UdpServer(configDto));
                 t.start();
-                Thread ts = new Thread(new ProxyServer(configDto));
+                Thread ts = new Thread(new NioServer(configDto));
                 ts.start();
                 ts.join();
                 t.join();

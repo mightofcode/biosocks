@@ -1,13 +1,11 @@
 package com.mocyx.biosocks.util;
 
-import com.mocyx.biosocks.exception.ProxyException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /**

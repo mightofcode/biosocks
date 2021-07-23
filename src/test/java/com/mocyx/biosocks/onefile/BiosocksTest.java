@@ -1,15 +1,12 @@
 package com.mocyx.biosocks.onefile;
 
 
-import com.mocyx.biosocks.ConfigDto;
-import com.mocyx.biosocks.bio.BioClient;
+import com.mocyx.biosocks.util.ConfigDto;
 import com.mocyx.biosocks.nio.NioClient;
 import com.mocyx.biosocks.nio.NioServer;
-import com.mocyx.biosocks.nio.ProxyServer;
 import lombok.SneakyThrows;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 

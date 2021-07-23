@@ -1,16 +1,13 @@
-package com.mocyx.biosocks;
+package com.mocyx.biosocks.udp;
 
-import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol;
-import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol.TunnelUdpRequest;
-import com.mocyx.biosocks.bio.protocol.TunnelUdpProtocol.TunnelUdpResponse;
-import com.mocyx.biosocks.util.EncodeUtil;
+import com.mocyx.biosocks.util.ConfigDto;
+import com.mocyx.biosocks.Global;
+import com.mocyx.biosocks.protocol.TunnelUdpProtocol;
+import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpRequest;
+import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpResponse;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FileUtils;
-import org.springframework.stereotype.Component;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

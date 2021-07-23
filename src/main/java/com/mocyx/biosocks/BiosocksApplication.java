@@ -8,9 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 public class BiosocksApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(BiosocksApplication.class, args);
     }
-
 }

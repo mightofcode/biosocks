@@ -1,4 +1,4 @@
-package com.mocyx.biosocks.bio.protocol;
+package com.mocyx.biosocks.protocol;
 
 
 import com.mocyx.biosocks.util.ByteBufferUtil;
