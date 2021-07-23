@@ -181,7 +181,7 @@ public class NioClient implements Runnable {
 
             log.debug("tryFlushWrite write {}", n);
             if (n <= 0) {
-                log.warn("write fail");
+                log.warn("write fail {} {}",channel.getRemoteAddress(),pipe.getTargetAddr());
                 //
                 SelectionKey key = (SelectionKey) objAttrUtil.getAttr(channel, "key");
                 key.interestOps(SelectionKey.OP_WRITE);
