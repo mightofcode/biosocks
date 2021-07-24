@@ -130,7 +130,7 @@ public class NioServer implements Runnable {
         }
     }
 
-    private void doRead(SocketChannel socketChannel) {
+    private void doRead(SocketChannel socketChannel) throws Exception{
         //
         Channel channel=getChannelFromSocketChannel(socketChannel);
         Pipe pipe=channel.getPipe();
@@ -146,8 +146,8 @@ public class NioServer implements Runnable {
             readCount = socketChannel.read(inBuffer);
             log.debug("readCount {}", readCount);
         } catch (IOException e) {
+            log.error("read error {} {}",channel.getSocketChannel().getRemoteAddress(),e.getMessage(),e);
             closePipe(pipe);
-            e.printStackTrace();
             return;
         }
         if (readCount == -1) {
