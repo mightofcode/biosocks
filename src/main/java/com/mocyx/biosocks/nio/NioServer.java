@@ -70,7 +70,13 @@ public class NioServer implements Runnable {
     }
 
     private Channel getChannelFromSocketChannel(SocketChannel socketChannel){
+        if(socketChannel==null){
+            return null;
+        }
         Channel channel= (Channel) objAttrUtil.getAttr(socketChannel, "channel");
+        if(channel==null){
+            return null;
+        }
         Pipe pipe=channel.getPipe();
         if(pipe!=null){
             pipe.lastActiveTime=System.currentTimeMillis();
@@ -98,7 +104,9 @@ public class NioServer implements Runnable {
     private void tryDisableOutput(Channel channel){
         if(channel!=null&&channel.getSocketChannel()!=null&&channel.getOutBuffer().position()==0){
             try {
-                channel.getSocketChannel().shutdownOutput();
+                if(channel.getSocketChannel().isConnected()){
+                    channel.getSocketChannel().shutdownOutput();
+                }
             }catch (Exception e){
                 log.error(e.getMessage(),e);
             }
@@ -122,11 +130,6 @@ public class NioServer implements Runnable {
     private void closePipe(Pipe pipe) {
         if(pipe==null){
             return;
-        }
-        try {
-            throw new RuntimeException();
-        }catch (Exception e){
-            log.error("close pipe",e);
         }
         objAttrUtil.delObj(pipe.getLocalChannel().getSocketChannel());
         objAttrUtil.delObj(pipe.getRemoteChannel().getSocketChannel());
@@ -280,11 +283,12 @@ public class NioServer implements Runnable {
     }
 
     @SneakyThrows
-    private boolean tryFlushWrite(Channel channel) {
+    private boolean directFlushWrite(Channel channel){
+
         ByteBuffer buffer=channel.getOutBuffer();
         Pipe pipe=channel.getPipe();
-        //
         while (buffer.hasRemaining()) {
+            //test it with https://www.youtube.com/watch?v=03-ge__OaIU&list=RDMM&index=11
             int n = 0;
             n = channel.getSocketChannel().write(buffer);
             log.debug("tryFlushWrite write {}", n);
@@ -297,7 +301,7 @@ public class NioServer implements Runnable {
                 otherChannel.getKey().interestOps(0);
                 System.currentTimeMillis();
                 buffer.compact();
-                //buffer.flip();
+                buffer.flip();
                 return false;
             }
         }
@@ -305,10 +309,20 @@ public class NioServer implements Runnable {
         buffer.clear();
         return true;
     }
+    @SneakyThrows
+    private boolean tryFlushWrite(Channel channel) {
+
+        if((channel.getKey().interestOps()&SelectionKey.OP_WRITE)!=0){
+            return false;
+        }
+        return  directFlushWrite(channel);
+
+    }
 
     private void doWrite(SocketChannel socketChannel) throws IOException {
         Channel channel=getChannelFromSocketChannel(socketChannel);
-        boolean flushed = tryFlushWrite(channel);
+        log.debug("do write");
+        boolean flushed = directFlushWrite(channel);
         if (flushed) {
             Channel other = channel.getPipe().otherChannel(channel);
             channel.getKey().interestOps(SelectionKey.OP_READ);
@@ -346,14 +360,17 @@ public class NioServer implements Runnable {
                     it.remove();
                     if (key.isValid()) {
                         try {
-                            if (key.isAcceptable()) {
+                            if (key.isValid()&&key.isAcceptable()) {
                                 doAccept((ServerSocketChannel) key.channel());
-                            } else if (key.isReadable()) {
+                            }
+                            if (key.isValid()&&key.isReadable()) {
                                 doRead((SocketChannel) key.channel());
-                            } else if (key.isConnectable()) {
+                            }
+                            if (key.isValid()&&key.isConnectable()) {
                                 doConnect((SocketChannel) key.channel());
                                 System.currentTimeMillis();
-                            } else if (key.isWritable()) {
+                            }
+                            if (key.isValid()&&key.isWritable()) {
                                 doWrite((SocketChannel) key.channel());
                                 System.currentTimeMillis();
                             }

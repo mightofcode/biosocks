@@ -235,14 +235,13 @@ public class NioClient implements Runnable {
             if (n <= 0) {
                 log.warn("write fail {} {} {} {}",buffer.remaining(),n,channel.getSocketChannel().getRemoteAddress(),pipe.getTargetAddr());
                 //
-                SelectionKey key = (SelectionKey) objAttrUtil.getAttr(channel, "key");
-                key.interestOps(SelectionKey.OP_WRITE);
+                channel.getKey().interestOps(SelectionKey.OP_WRITE);
                 //关闭写来源
                 Channel otherChannel = pipe.otherChannel(channel);
                 otherChannel.getKey().interestOps(0);
                 System.currentTimeMillis();
                 buffer.compact();
-                //buffer.flip();
+                buffer.flip();
                 return false;
             }
         }
@@ -250,10 +249,6 @@ public class NioClient implements Runnable {
         return true;
     }
 
-    private SelectionKey getKey(SocketChannel channel) {
-
-        return (SelectionKey) objAttrUtil.getAttr(channel, "key");
-    }
 
     private void doConnect(SocketChannel socketChannel) {
 
@@ -297,13 +292,8 @@ public class NioClient implements Runnable {
     }
 
     private void closePipe(Pipe pipe) {
-
-//        if(true){
-//            return;
-//        }
         objAttrUtil.delObj(pipe.localChannel);
         objAttrUtil.delObj(pipe.remoteChannel);
-
         log.info("close {}", pipe.targetAddr);
         if (pipe.getLocalChannel() != null) {
             try {
@@ -320,7 +310,30 @@ public class NioClient implements Runnable {
             }
         }
     }
-
+    private void tryDisableOutput(Channel channel){
+        if(channel!=null&&channel.getSocketChannel()!=null&&channel.getOutBuffer().position()==0){
+            try {
+                channel.getSocketChannel().shutdownOutput();
+            }catch (Exception e){
+                log.error(e.getMessage(),e);
+            }
+        }
+    }
+    private void closeChannelInput(Channel channel){
+        try {
+            Pipe pipe=channel.getPipe();
+            if(channel.getSocketChannel()!=null){
+                channel.getSocketChannel().shutdownInput();
+                channel.getKey().interestOps(0);
+            }
+            Channel other=pipe.otherChannel(channel);
+            if(other!=null&&other.getSocketChannel()!=null){
+                tryDisableOutput(other);
+            }
+        }catch (Exception e){
+            log.error(e.getMessage(),e);
+        }
+    }
     private void doRead(SocketChannel socketChannel) {
 
         Channel channel=getChannelFromSocketChannel(socketChannel);
@@ -342,9 +355,8 @@ public class NioClient implements Runnable {
             return;
         }
         if (readCount == -1) {
-            log.info("read -1");
-
-            //closePipe(pipe);
+            log.debug("read -1");
+            closeChannelInput(channel);
         } else {
             inBuffer.flip();
             if (channel.getType().equals("local")) {
@@ -372,16 +384,17 @@ public class NioClient implements Runnable {
                     it.remove();
                     if (key.isValid()) {
                         try {
-                            if (key.isAcceptable()) {
+                            if (key.isValid()&&key.isAcceptable()) {
                                 doAccept((ServerSocketChannel) key.channel());
-                            } else if (key.isReadable()) {
+                            }
+                            if (key.isValid()&&key.isReadable()) {
                                 doRead((SocketChannel) key.channel());
-                            } else if (key.isConnectable()) {
+                            }
+                            if (key.isValid()&&key.isConnectable()) {
                                 doConnect((SocketChannel) key.channel());
-                                System.currentTimeMillis();
-                            } else if (key.isWritable()) {
+                            }
+                            if (key.isValid()&&key.isWritable()) {
                                 doWrite((SocketChannel) key.channel());
-                                System.currentTimeMillis();
                             }
                         } catch (Exception e) {
                             log.warn(e.getMessage(), e);

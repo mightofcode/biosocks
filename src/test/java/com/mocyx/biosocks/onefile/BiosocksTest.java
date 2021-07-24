@@ -60,7 +60,8 @@ public class BiosocksTest {
         ConfigDto configDto = new ConfigDto();
         configDto.setClientPort(9201);
         configDto.setClient("0.0.0.0");
-        configDto.setServer("47.243.103.58");
+        //change this
+        configDto.setServer("0.0.0.0");
         configDto.setServerPort(9501);
         configDto.setSecret("123456");
         NioClient client = new NioClient(configDto);
