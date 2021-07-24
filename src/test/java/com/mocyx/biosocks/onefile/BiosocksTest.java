@@ -54,5 +54,21 @@ public class BiosocksTest {
         System.currentTimeMillis();
     }
 
+    @Test
+    @SneakyThrows
+    public void testClient() {
+        ConfigDto configDto = new ConfigDto();
+        configDto.setClientPort(9201);
+        configDto.setClient("0.0.0.0");
+        configDto.setServer("47.243.103.58");
+        configDto.setServerPort(9501);
+        configDto.setSecret("123456");
+        NioClient client = new NioClient(configDto);
+        Thread t = new Thread(client);
+        t.start();
+        t.join();
+        System.currentTimeMillis();
+    }
+
 
 }

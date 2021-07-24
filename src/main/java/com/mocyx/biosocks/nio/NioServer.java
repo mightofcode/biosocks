@@ -105,11 +105,28 @@ public class NioServer implements Runnable {
         }
     }
     private void closeChannelInput(Channel channel){
-
+        try {
+            Pipe pipe=channel.getPipe();
+            if(channel.getSocketChannel()!=null){
+                channel.getSocketChannel().shutdownInput();
+                channel.getKey().interestOps(0);
+            }
+            Channel other=pipe.otherChannel(channel);
+            if(other!=null&&other.getSocketChannel()!=null){
+                tryDisableOutput(other);
+            }
+        }catch (Exception e){
+            log.error(e.getMessage(),e);
+        }
     }
     private void closePipe(Pipe pipe) {
         if(pipe==null){
             return;
+        }
+        try {
+            throw new RuntimeException();
+        }catch (Exception e){
+            log.error("close pipe",e);
         }
         objAttrUtil.delObj(pipe.getLocalChannel().getSocketChannel());
         objAttrUtil.delObj(pipe.getRemoteChannel().getSocketChannel());
