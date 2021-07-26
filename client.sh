@@ -1,1 +1,1 @@
-java -jar ./target/biosocks-1.0.0.jar client
+start java -cp biosocks-1.0.0.jar -Dloader.main=com.mocyx.biosocks.ClientGui org.springframework.boot.loader.PropertiesLauncher

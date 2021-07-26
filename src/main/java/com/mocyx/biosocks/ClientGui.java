@@ -1,7 +1,5 @@
 package com.mocyx.biosocks;
 
-import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.gui.ClientForm;
 import com.mocyx.biosocks.nio.NioClient;
 import com.mocyx.biosocks.util.ConfigDto;
 import com.mocyx.biosocks.util.EncodeUtil;
@@ -26,12 +24,7 @@ import static com.mocyx.biosocks.util.Runner.saveConfig;
 @SpringBootApplication
 @Slf4j
 public class ClientGui extends JFrame{
-
-
-
     ConfigDto configDto ;
-
-
     JButton okButton;
     JButton logButton;
     JTextField serverIpField;
