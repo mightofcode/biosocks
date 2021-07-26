@@ -54,7 +54,8 @@ public class Runner implements CommandLineRunner {
                 Thread t = new Thread(client);
                 t.start();
                 t.join();
-            } else if (Objects.equals(args[0], "server")) {
+            }
+            else if (Objects.equals(args[0], "server")) {
                 ConfigDto configDto = loadConfig("server.json");
                 EncodeUtil.setSecret(configDto.getSecret());
                 Thread t = new Thread(new UdpServer(configDto));
