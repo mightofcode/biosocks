@@ -131,8 +131,12 @@ public class NioServer implements Runnable {
         if(pipe==null){
             return;
         }
-        objAttrUtil.delObj(pipe.getLocalChannel().getSocketChannel());
-        objAttrUtil.delObj(pipe.getRemoteChannel().getSocketChannel());
+        if(pipe.getLocalChannel()!=null){
+            objAttrUtil.delObj(pipe.getLocalChannel().getSocketChannel());
+        }
+        if(pipe.getRemoteChannel()!=null){
+            objAttrUtil.delObj(pipe.getRemoteChannel().getSocketChannel());
+        }
         log.info("close {} idle {}", pipe.getTargetAddr(),System.currentTimeMillis()-pipe.lastActiveTime);
         if (pipe.getLocalChannel() != null) {
             try {
