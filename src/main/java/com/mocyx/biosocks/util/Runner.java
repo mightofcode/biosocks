@@ -1,4 +1,4 @@
-package com.mocyx.biosocks;
+package com.mocyx.biosocks.util;
 
 import com.alibaba.fastjson.JSON;
 import com.mocyx.biosocks.nio.NioClient;
@@ -21,7 +21,7 @@ import java.util.Objects;
 @Slf4j
 public class Runner implements CommandLineRunner {
 
-    private ConfigDto loadConfig(String path) {
+    public static ConfigDto loadConfig(String path) {
         try {
             String str = FileUtils.readFileToString(new File(path), "utf-8");
             ConfigDto config = JSON.parseObject(str, ConfigDto.class);
@@ -31,6 +31,14 @@ public class Runner implements CommandLineRunner {
             System.exit(0);
         }
         return null;
+    }
+    public static void saveConfig(String path,ConfigDto configDto) {
+        try {
+            FileUtils.writeStringToFile(new File(path),JSON.toJSONString(configDto));
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            System.exit(0);
+        }
     }
 
     @Override

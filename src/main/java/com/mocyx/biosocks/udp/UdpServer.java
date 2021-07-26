@@ -1,7 +1,7 @@
 package com.mocyx.biosocks.udp;
 
 import com.mocyx.biosocks.util.ConfigDto;
-import com.mocyx.biosocks.Global;
+import com.mocyx.biosocks.util.Global;
 import com.mocyx.biosocks.protocol.TunnelUdpProtocol;
 import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpRequest;
 import com.mocyx.biosocks.protocol.TunnelUdpProtocol.TunnelUdpResponse;

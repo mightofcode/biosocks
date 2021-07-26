@@ -13,9 +13,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ConfigDto {
-    private String server;
-    private Integer serverPort;
-    private String client;
-    private Integer clientPort;
-    private String secret = "default";
+    private volatile String server;
+    private volatile Integer serverPort;
+    private volatile String client;
+    private volatile Integer clientPort;
+    private volatile String secret = "default";
 }

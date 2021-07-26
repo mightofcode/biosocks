@@ -20,13 +20,14 @@ import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.Iterator;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 @Slf4j
 public class NioClient implements Runnable {
 
-    ConfigDto configDto;
+    volatile ConfigDto configDto;
 
     public NioClient(ConfigDto configDto) {
         this.configDto = configDto;
@@ -36,6 +37,7 @@ public class NioClient implements Runnable {
 
     private ObjAttrUtil objAttrUtil = new ObjAttrUtil();
 
+    public  AtomicBoolean closeFlag=new AtomicBoolean(false);
 
     @Getter
     @Setter
@@ -69,27 +71,7 @@ public class NioClient implements Runnable {
         }
     }
 
-//
-//    @Data
-//    static class ClientPipe {
-//        private ByteBuffer localInBuffer = ByteBuffer.allocate(4 * 1024);
-//        private ByteBuffer localOutBuffer = ByteBuffer.allocate(8 * 1024);
-//        private ByteBuffer remoteInBuffer = ByteBuffer.allocate(4 * 1024);
-//        private ByteBuffer remoteOutBuffer = ByteBuffer.allocate(8 * 1024);
-//        //
-//        private SocketChannel localChannel;
-//        private SocketChannel remoteChannel;
-//        private Socks5State state = Socks5State.shake;
-//        private InetSocketAddress targetAddr;
-//
-//        private SocketChannel otherChannel(SocketChannel channel) {
-//            if (channel == localChannel) {
-//                return remoteChannel;
-//            } else {
-//                return localChannel;
-//            }
-//        }
-//    }
+    private Set<Pipe> pipeList=new HashSet<>();
 
     private void doAccept(ServerSocketChannel serverChannel) throws IOException {
         SocketChannel channel = serverChannel.accept();
@@ -102,6 +84,7 @@ public class NioClient implements Runnable {
         SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
         c.setKey(key);
         Pipe clientPipe = new Pipe();
+        pipeList.add(clientPipe);
         c.setPipe(clientPipe);
         clientPipe.setLocalChannel(c);
 
@@ -164,6 +147,7 @@ public class NioClient implements Runnable {
             remoteChannel.setType("remote");
             remoteChannel.setPipe(local.getPipe());
             objAttrUtil.setAttr(remote, "channel", remoteChannel);
+            remote.socket().setSoTimeout(5000);
             boolean b1 = remote.connect(address);
             System.currentTimeMillis();
         } else if (local.getPipe().state == Socks5State.transfer) {
@@ -295,6 +279,7 @@ public class NioClient implements Runnable {
         objAttrUtil.delObj(pipe.localChannel);
         objAttrUtil.delObj(pipe.remoteChannel);
         log.info("close {}", pipe.targetAddr);
+        pipeList.remove(pipe);
         if (pipe.getLocalChannel() != null) {
             try {
                 pipe.getLocalChannel().getSocketChannel().close();
@@ -377,36 +362,52 @@ public class NioClient implements Runnable {
             serverChannel.socket().bind(new InetSocketAddress(configDto.getClient(), configDto.getClientPort()));
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            while (selector.select() > 0) {
-                log.debug("handle select");
-                for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
-                    SelectionKey key = (SelectionKey) it.next();
-                    it.remove();
-                    if (key.isValid()) {
-                        try {
-                            if (key.isValid()&&key.isAcceptable()) {
-                                doAccept((ServerSocketChannel) key.channel());
-                            }
-                            if (key.isValid()&&key.isReadable()) {
-                                doRead((SocketChannel) key.channel());
-                            }
-                            if (key.isValid()&&key.isConnectable()) {
-                                doConnect((SocketChannel) key.channel());
-                            }
-                            if (key.isValid()&&key.isWritable()) {
-                                doWrite((SocketChannel) key.channel());
-                            }
-                        } catch (Exception e) {
-                            log.warn(e.getMessage(), e);
-                            Channel channel=getChannelFromSocketChannel((SocketChannel) key.channel());
-                            if (channel!=null&&channel.getPipe() != null) {
-                                closePipe(channel.getPipe());
+            while (true){
+                int selectCount=selector.select(500);
+                if(selectCount>0){
+                    for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
+                        SelectionKey key = (SelectionKey) it.next();
+                        it.remove();
+                        if (key.isValid()) {
+                            try {
+                                if (key.isValid()&&key.isAcceptable()) {
+                                    doAccept((ServerSocketChannel) key.channel());
+                                }
+                                if (key.isValid()&&key.isReadable()) {
+                                    doRead((SocketChannel) key.channel());
+                                }
+                                if (key.isValid()&&key.isConnectable()) {
+                                    doConnect((SocketChannel) key.channel());
+                                }
+                                if (key.isValid()&&key.isWritable()) {
+                                    doWrite((SocketChannel) key.channel());
+                                }
+                            } catch (Exception e) {
+                                log.warn(e.getMessage(), e);
+                                Channel channel=getChannelFromSocketChannel((SocketChannel) key.channel());
+                                if (channel!=null&&channel.getPipe() != null) {
+                                    closePipe(channel.getPipe());
+                                }
                             }
                         }
                     }
                 }
+                if(closeFlag.get()){
+                    break;
+                }
             }
+            serverChannel.socket().close();
             serverChannel.close();
+            selector.close();
+
+            for (Pipe p :new ArrayList<>(pipeList)){
+                try {
+                    closePipe(p);
+                }catch (Exception e){
+                    log.error(e.getMessage(),e);
+                }
+            }
+            System.currentTimeMillis();
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }

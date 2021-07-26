@@ -60,8 +60,12 @@
             <artifactId>commons-io</artifactId>
             <version>2.7</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.vincenzopalazzo</groupId>
+            <artifactId>material-ui-swing</artifactId>
+            <version>1.1.2</version>
+        </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>

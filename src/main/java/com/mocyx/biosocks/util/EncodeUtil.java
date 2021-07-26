@@ -1,7 +1,5 @@
 package com.mocyx.biosocks.util;
 
-import com.mocyx.biosocks.Global;
-
 /**
  * @author Administrator
  */
