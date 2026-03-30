@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -172,7 +173,19 @@ public class NioClient implements Runnable {
         setReadInterest(source, destination.getOutBuffer().position() < threshold);
     }
 
-    @SneakyThrows
+    private boolean isExpectedDisconnect(IOException e) {
+        String message = e.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String lowerCaseMessage = message.toLowerCase();
+        return lowerCaseMessage.contains("connection reset")
+                || lowerCaseMessage.contains("broken pipe")
+                || lowerCaseMessage.contains("software caused connection abort")
+                || message.contains("中止了一个已建立的连接")
+                || message.contains("远程主机强迫关闭了一个现有的连接");
+    }
+
     private boolean flushPendingWrites(Channel channel) {
         if (channel == null || channel.getSocketChannel() == null) {
             return true;
@@ -181,7 +194,19 @@ public class NioClient implements Runnable {
         ByteBuffer buffer = channel.getOutBuffer();
         buffer.flip();
         while (buffer.hasRemaining()) {
-            int written = channel.getSocketChannel().write(buffer);
+            int written;
+            try {
+                written = channel.getSocketChannel().write(buffer);
+            } catch (IOException e) {
+                buffer.compact();
+                if (isExpectedDisconnect(e)) {
+                    log.info("peer closed while writing {}", channel.getPipe().getTargetAddr());
+                } else {
+                    log.warn(e.getMessage(), e);
+                }
+                closePipe(channel.getPipe());
+                return false;
+            }
             if (written < 0) {
                 buffer.compact();
                 closePipe(channel.getPipe());
@@ -477,7 +502,11 @@ public class NioClient implements Runnable {
             readCount = channel.getSocketChannel().read(inBuffer);
         } catch (IOException e) {
             closePipe(pipe);
-            log.warn(e.getMessage(), e);
+            if (isExpectedDisconnect(e)) {
+                log.info("peer closed while reading {}", pipe.getTargetAddr());
+            } else {
+                log.warn(e.getMessage(), e);
+            }
             return;
         }
 
@@ -516,18 +545,20 @@ public class NioClient implements Runnable {
                             continue;
                         }
                         try {
-                            if (key.isAcceptable()) {
+                            if (key.isValid() && key.isAcceptable()) {
                                 doAccept((ServerSocketChannel) key.channel());
                             }
-                            if (key.isReadable()) {
+                            if (key.isValid() && key.isReadable()) {
                                 doRead(key);
                             }
-                            if (key.isConnectable()) {
+                            if (key.isValid() && key.isConnectable()) {
                                 doConnect(key);
                             }
-                            if (key.isWritable()) {
+                            if (key.isValid() && key.isWritable()) {
                                 doWrite(key);
                             }
+                        } catch (CancelledKeyException e) {
+                            continue;
                         } catch (Exception e) {
                             log.warn(e.getMessage(), e);
                             Channel channel = (Channel) key.attachment();
