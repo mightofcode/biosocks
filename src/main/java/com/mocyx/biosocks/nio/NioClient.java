@@ -1,14 +1,15 @@
 package com.mocyx.biosocks.nio;
 
 import com.alibaba.fastjson.JSON;
-import com.mocyx.biosocks.util.ConfigDto;
-import com.mocyx.biosocks.protocol.SocksProtocol.*;
+import com.mocyx.biosocks.protocol.SocksProtocol.Socks5State;
+import com.mocyx.biosocks.protocol.SocksProtocol.SocksConnectRequestDto;
+import com.mocyx.biosocks.protocol.SocksProtocol.SocksConnectResponseDto;
+import com.mocyx.biosocks.protocol.SocksProtocol.SocksShakeRequestDto;
 import com.mocyx.biosocks.protocol.TunnelMsgType;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelRequest;
 import com.mocyx.biosocks.protocol.TunnelProtocol.TunnelResponse;
+import com.mocyx.biosocks.util.ConfigDto;
 import com.mocyx.biosocks.util.EncodeUtil;
-import com.mocyx.biosocks.util.ObjAttrUtil;
-import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
@@ -19,37 +20,45 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
-import java.util.*;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 
 @Slf4j
 public class NioClient implements Runnable {
 
-    volatile ConfigDto configDto;
+    private static final int IN_BUFFER_SIZE = 4 * 1024;
+    private static final int OUT_BUFFER_SIZE = 32 * 1024;
+    private static final int BACKPRESSURE_THRESHOLD_NUMERATOR = 3;
+    private static final int BACKPRESSURE_THRESHOLD_DENOMINATOR = 4;
+
+    private final ConfigDto configDto;
+    private final Set<Pipe> pipeList = new HashSet<>();
+    private Selector selector;
+
+    public AtomicBoolean closeFlag = new AtomicBoolean(false);
 
     public NioClient(ConfigDto configDto) {
         this.configDto = configDto;
     }
 
-    private Selector selector;
-
-    private ObjAttrUtil objAttrUtil = new ObjAttrUtil();
-
-    public  AtomicBoolean closeFlag=new AtomicBoolean(false);
-
     @Getter
     @Setter
-    static class Channel{
-        //local remote
+    static class Channel {
         private String type;
         private Pipe pipe;
         private SelectionKey key;
         private SocketChannel socketChannel;
-        private ByteBuffer inBuffer = ByteBuffer.allocate(4 * 1024);
-        private ByteBuffer outBuffer = ByteBuffer.allocate(8 * 1024);
-        private boolean outputOpen=true;
+        private ByteBuffer inBuffer = ByteBuffer.allocate(IN_BUFFER_SIZE);
+        private ByteBuffer outBuffer = ByteBuffer.allocate(OUT_BUFFER_SIZE);
+        private boolean inputClosed;
+        private boolean outputShutdownPending;
     }
 
     @Getter
@@ -57,74 +66,219 @@ public class NioClient implements Runnable {
     static class Pipe {
         private Channel localChannel;
         private Channel remoteChannel;
-        //
         private InetSocketAddress targetAddr;
         private Socks5State state = Socks5State.shake;
-        private long lastActiveTime=System.currentTimeMillis();
-        //
+        private long lastActiveTime = System.currentTimeMillis();
+        private boolean closed;
+
         private Channel otherChannel(Channel channel) {
             if (channel == localChannel) {
                 return remoteChannel;
-            } else {
-                return localChannel;
             }
+            return localChannel;
         }
     }
 
-    private Set<Pipe> pipeList=new HashSet<>();
+    private void touch(Channel channel) {
+        if (channel != null && channel.getPipe() != null) {
+            channel.getPipe().setLastActiveTime(System.currentTimeMillis());
+        }
+    }
+
+    private Channel getChannel(SelectionKey key) {
+        if (key == null) {
+            return null;
+        }
+        Channel channel = (Channel) key.attachment();
+        touch(channel);
+        return channel;
+    }
 
     private void doAccept(ServerSocketChannel serverChannel) throws IOException {
-        SocketChannel channel = serverChannel.accept();
-        Channel c=new Channel();
-        c.setType("local");
+        SocketChannel socketChannel = serverChannel.accept();
+        if (socketChannel == null) {
+            return;
+        }
+        socketChannel.configureBlocking(false);
 
+        Pipe pipe = new Pipe();
+        pipeList.add(pipe);
 
-        c.setSocketChannel(channel);
-        channel.configureBlocking(false);
-        SelectionKey key = channel.register(selector, SelectionKey.OP_READ);
-        c.setKey(key);
-        Pipe clientPipe = new Pipe();
-        pipeList.add(clientPipe);
-        c.setPipe(clientPipe);
-        clientPipe.setLocalChannel(c);
+        Channel channel = new Channel();
+        channel.setType("local");
+        channel.setPipe(pipe);
+        channel.setSocketChannel(socketChannel);
 
-        objAttrUtil.setAttr(channel, "channel", c);
-        System.currentTimeMillis();
+        SelectionKey key = socketChannel.register(selector, SelectionKey.OP_READ, channel);
+        channel.setKey(key);
+        pipe.setLocalChannel(channel);
     }
 
-    private Channel getChannelFromSocketChannel(SocketChannel socketChannel){
-       Channel channel= (Channel) objAttrUtil.getAttr(socketChannel, "channel");
-        Pipe pipe=channel.getPipe();
-        if(pipe!=null){
-            pipe.lastActiveTime=System.currentTimeMillis();
+    private void setReadInterest(Channel channel, boolean enabled) {
+        if (channel == null || channel.getKey() == null || !channel.getKey().isValid()) {
+            return;
         }
-        return channel;
+        int ops = channel.getKey().interestOps();
+        if ((ops & SelectionKey.OP_CONNECT) != 0) {
+            return;
+        }
+        if (enabled && !channel.isInputClosed()) {
+            channel.getKey().interestOps(ops | SelectionKey.OP_READ);
+        } else {
+            channel.getKey().interestOps(ops & ~SelectionKey.OP_READ);
+        }
+    }
+
+    private void setWriteInterest(Channel channel, boolean enabled) {
+        if (channel == null || channel.getKey() == null || !channel.getKey().isValid()) {
+            return;
+        }
+        int ops = channel.getKey().interestOps();
+        if (enabled) {
+            channel.getKey().interestOps(ops | SelectionKey.OP_WRITE);
+        } else {
+            channel.getKey().interestOps(ops & ~SelectionKey.OP_WRITE);
+        }
+    }
+
+    private void ensureOutCapacity(Channel channel, int additionalBytes) {
+        ByteBuffer buffer = channel.getOutBuffer();
+        if (buffer.remaining() >= additionalBytes) {
+            return;
+        }
+
+        int required = buffer.position() + additionalBytes;
+        int newCapacity = buffer.capacity();
+        while (newCapacity < required) {
+            newCapacity <<= 1;
+        }
+
+        ByteBuffer newBuffer = ByteBuffer.allocate(newCapacity);
+        buffer.flip();
+        newBuffer.put(buffer);
+        channel.setOutBuffer(newBuffer);
+    }
+
+    private void updatePeerReadInterest(Channel destination) {
+        if (destination == null || destination.getPipe() == null) {
+            return;
+        }
+        Channel source = destination.getPipe().otherChannel(destination);
+        if (source == null) {
+            return;
+        }
+        int threshold = destination.getOutBuffer().capacity() * BACKPRESSURE_THRESHOLD_NUMERATOR
+                / BACKPRESSURE_THRESHOLD_DENOMINATOR;
+        setReadInterest(source, destination.getOutBuffer().position() < threshold);
+    }
+
+    @SneakyThrows
+    private boolean flushPendingWrites(Channel channel) {
+        if (channel == null || channel.getSocketChannel() == null) {
+            return true;
+        }
+
+        ByteBuffer buffer = channel.getOutBuffer();
+        buffer.flip();
+        while (buffer.hasRemaining()) {
+            int written = channel.getSocketChannel().write(buffer);
+            if (written < 0) {
+                buffer.compact();
+                closePipe(channel.getPipe());
+                return false;
+            }
+            if (written == 0) {
+                break;
+            }
+        }
+        buffer.compact();
+
+        boolean pending = buffer.position() > 0;
+        setWriteInterest(channel, pending);
+        updatePeerReadInterest(channel);
+
+        if (!pending && channel.isOutputShutdownPending()) {
+            try {
+                if (channel.getSocketChannel().isConnected()) {
+                    channel.getSocketChannel().shutdownOutput();
+                }
+            } catch (IOException e) {
+                log.error(e.getMessage(), e);
+            }
+            channel.setOutputShutdownPending(false);
+            tryClosePipe(channel.getPipe());
+        }
+        return !pending;
+    }
+
+    @SneakyThrows
+    private void appendAndFlush(Channel destination, ByteBuffer sourceBuffer) {
+        if (destination == null || sourceBuffer == null || !sourceBuffer.hasRemaining()) {
+            return;
+        }
+        ensureOutCapacity(destination, sourceBuffer.remaining());
+        destination.getOutBuffer().put(sourceBuffer);
+        updatePeerReadInterest(destination);
+        flushPendingWrites(destination);
+    }
+
+    private void transferToPeer(Channel source, Channel destination) {
+        if (destination == null) {
+            closePipe(source.getPipe());
+            return;
+        }
+        ByteBuffer buffer = source.getInBuffer();
+        if (!buffer.hasRemaining()) {
+            return;
+        }
+        EncodeUtil.simpleXorEncrypt(buffer.array(), buffer.position(), buffer.remaining());
+        appendAndFlush(destination, buffer);
+    }
+
+    private void finishRemoteConnect(Channel remote) {
+        if (remote == null || remote.getPipe() == null || remote.getPipe().isClosed()) {
+            return;
+        }
+        Pipe pipe = remote.getPipe();
+        log.info("connect {}", pipe.getTargetAddr());
+
+        if (remote.getKey() != null && remote.getKey().isValid()) {
+            remote.getKey().interestOps(SelectionKey.OP_READ);
+        }
+
+        TunnelRequest request = new TunnelRequest();
+        request.setDomain(pipe.getTargetAddr().getHostString());
+        request.setType((short) TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
+        request.setPort(pipe.getTargetAddr().getPort());
+
+        ensureOutCapacity(remote, 16 + request.getDomain().length() * 4);
+        request.write(remote.getOutBuffer());
+        flushPendingWrites(remote);
     }
 
     @SneakyThrows
     private void handleLocalIn(Channel local) {
-        System.currentTimeMillis();
+        Pipe pipe = local.getPipe();
 
-        if (local.getPipe().state == Socks5State.shake) {
+        if (pipe.getState() == Socks5State.shake) {
             SocksShakeRequestDto requestDto = SocksShakeRequestDto.tryRead(local.getInBuffer());
-            SocksShakeResponseDto responseDto = new SocksShakeResponseDto();
-            responseDto.setVer((byte) 0x05);
-            responseDto.setMethod((byte) 0x00);
-            ByteBuffer tmpBuffer = ByteBuffer.allocate(16);
-            responseDto.write(tmpBuffer);
-            tmpBuffer.flip();
-            local.getSocketChannel().write(tmpBuffer);
-            //
-            local.getPipe().state = Socks5State.connect;
-            System.currentTimeMillis();
-        } else if (local.getPipe().state == Socks5State.connect) {
+            if (requestDto == null) {
+                return;
+            }
+            ensureOutCapacity(local, 2);
+            local.getOutBuffer().put((byte) 0x05);
+            local.getOutBuffer().put((byte) 0x00);
+            flushPendingWrites(local);
+            pipe.setState(Socks5State.connect);
+            return;
+        }
+
+        if (pipe.getState() == Socks5State.connect) {
             SocksConnectRequestDto connectRequestDto = SocksConnectRequestDto.tryRead(local.getInBuffer());
-            SocketChannel remote = SocketChannel.open();
-            Channel remoteChannel=new Channel();
-            remoteChannel.setSocketChannel(remote);
-            local.getPipe().setRemoteChannel(remoteChannel);
-            remote.configureBlocking(false);
-            //
+            if (connectRequestDto == null) {
+                return;
+            }
+
             String host = null;
             if (!StringUtils.isEmpty(connectRequestDto.getDomain())) {
                 host = connectRequestDto.getDomain();
@@ -133,223 +287,213 @@ public class NioClient implements Runnable {
             }
             if (StringUtils.isEmpty(host)) {
                 log.warn("host is empty {}", JSON.toJSONString(connectRequestDto));
-                closePipe(local.getPipe());
+                closePipe(pipe);
                 return;
             }
-            InetSocketAddress targetAddr = new InetSocketAddress(host,
-                    connectRequestDto.getPort());
-            local.getPipe().setTargetAddr(targetAddr);
-            //
-            InetSocketAddress address = new InetSocketAddress(configDto.getServer(),
-                    configDto.getServerPort());
-            SelectionKey key = remote.register(selector, SelectionKey.OP_CONNECT);
-            remoteChannel.setKey(key);
+
+            pipe.setTargetAddr(new InetSocketAddress(host, connectRequestDto.getPort()));
+
+            SocketChannel remoteSocket = SocketChannel.open();
+            remoteSocket.configureBlocking(false);
+
+            Channel remoteChannel = new Channel();
             remoteChannel.setType("remote");
-            remoteChannel.setPipe(local.getPipe());
-            objAttrUtil.setAttr(remote, "channel", remoteChannel);
-            remote.socket().setSoTimeout(5000);
-            boolean b1 = remote.connect(address);
-            System.currentTimeMillis();
-        } else if (local.getPipe().state == Socks5State.transfer) {
-            Channel remote=local.getPipe().otherChannel(local);
-            ByteBuffer buffer = local.getInBuffer();
-            byte[] data = new byte[buffer.remaining()];
-            buffer.get(data);
-            EncodeUtil.simpleXorEncrypt(data, 0, data.length);
-            remote.getOutBuffer().put(data);
-            remote.getOutBuffer().flip();
-            tryFlushWrite(remote);
-            System.currentTimeMillis();
+            remoteChannel.setPipe(pipe);
+            remoteChannel.setSocketChannel(remoteSocket);
+
+            SelectionKey key = remoteSocket.register(selector, SelectionKey.OP_CONNECT, remoteChannel);
+            remoteChannel.setKey(key);
+            pipe.setRemoteChannel(remoteChannel);
+
+            InetSocketAddress address = new InetSocketAddress(configDto.getServer(), configDto.getServerPort());
+            if (remoteSocket.connect(address)) {
+                finishRemoteConnect(remoteChannel);
+            }
+            return;
         }
-        System.currentTimeMillis();
+
+        if (pipe.getState() == Socks5State.transfer) {
+            transferToPeer(local, pipe.otherChannel(local));
+        }
     }
 
     @SneakyThrows
     private void handleRemoteIn(Channel remote) {
-        System.currentTimeMillis();
+        Pipe pipe = remote.getPipe();
         ByteBuffer buffer = remote.getInBuffer();
 
-        if (remote.getPipe().state == Socks5State.connect) {
-            Channel local=remote.getPipe().otherChannel(remote);
+        if (pipe.getState() == Socks5State.connect) {
             TunnelResponse response = TunnelResponse.tryRead(buffer);
+            if (response == null) {
+                return;
+            }
+
+            Channel local = pipe.otherChannel(remote);
             SocksConnectResponseDto res = new SocksConnectResponseDto();
             res.setVer((byte) 0x05);
+            res.setCmd(response.getType() == TunnelMsgType.RES_CONNECT_SUCCESS.getV() ? (byte) 0x00 : (byte) 0x04);
             res.setRsv((byte) 0x00);
             res.setAtyp((byte) 0x01);
             res.setAddr(Inet4Address.getByName("0.0.0.0"));
             res.setPort((short) 0x0843);
-            //
+
+            ensureOutCapacity(local, 32);
+            res.write(local.getOutBuffer());
+            flushPendingWrites(local);
+
             if (response.getType() == TunnelMsgType.RES_CONNECT_SUCCESS.getV()) {
-                res.setCmd((byte) 0x00);
-                res.write(local.getOutBuffer());
-                local.getOutBuffer().flip();
-                tryFlushWrite(local);
-                System.currentTimeMillis();
-                remote.getPipe().state = Socks5State.transfer;
-            } else if (response.getType() == TunnelMsgType.RES_CONNECT_FAIL.getV()) {
-                res.setCmd((byte) 0x04);
-                res.write(local.getOutBuffer());
-                local.getOutBuffer().flip();
-                tryFlushWrite(local);
+                pipe.setState(Socks5State.transfer);
+            } else {
                 log.warn("cloud connect remote fail");
             }
-        } else if (remote.getPipe().state == Socks5State.transfer) {
-            //
-            Channel local=remote.getPipe().otherChannel(remote);
-            byte[] data = new byte[buffer.remaining()];
-            buffer.get(data);
-            EncodeUtil.simpleXorEncrypt(data, 0, data.length);
-            local.getOutBuffer().put(data);
-            local.getOutBuffer().flip();
-            tryFlushWrite(local);
-            System.currentTimeMillis();
+            return;
         }
-        System.currentTimeMillis();
+
+        if (pipe.getState() == Socks5State.transfer) {
+            transferToPeer(remote, pipe.otherChannel(remote));
+        }
     }
 
-    @SneakyThrows
-    private boolean tryFlushWrite(Channel channel) {
-        ByteBuffer buffer=channel.getOutBuffer();
-        Pipe pipe=channel.getPipe();
-        while (buffer.hasRemaining()) {
-            int n = 0;
-            n = channel.getSocketChannel().write(buffer);
-
-            log.debug("tryFlushWrite write {}", n);
-            if (n <= 0) {
-                log.warn("write fail {} {} {} {}",buffer.remaining(),n,channel.getSocketChannel().getRemoteAddress(),pipe.getTargetAddr());
-                //
-                channel.getKey().interestOps(SelectionKey.OP_WRITE);
-                //关闭写来源
-                Channel otherChannel = pipe.otherChannel(channel);
-                otherChannel.getKey().interestOps(0);
-                System.currentTimeMillis();
-                buffer.compact();
-                buffer.flip();
-                return false;
-            }
+    private void doConnect(SelectionKey key) {
+        Channel remote = getChannel(key);
+        if (remote == null) {
+            return;
         }
-        buffer.clear();
-        return true;
-    }
-
-
-    private void doConnect(SocketChannel socketChannel) {
-
-        Channel remote=getChannelFromSocketChannel(socketChannel);
-        String type = remote.getType();
-        Pipe pipe = remote.getPipe();
-        Channel other=pipe.otherChannel(remote);
-        //
-        if (type.equals("remote")) {
-            try {
-                boolean b1 = socketChannel.finishConnect();
-            } catch (IOException e) {
-                closePipe((pipe));
-                log.warn("connect cloud fail");
+        try {
+            if (!remote.getSocketChannel().finishConnect()) {
                 return;
             }
-            log.info("connect {}", pipe.targetAddr);
-            remote.getKey().interestOps(SelectionKey.OP_READ);
-            TunnelRequest request = new TunnelRequest();
-            //
-            request.setDomain(pipe.getTargetAddr().getHostString());
-            request.setType((short) TunnelMsgType.REQ_CONNECT_DOMAIN.getV());
-            request.setPort(pipe.getTargetAddr().getPort());
-            //
-            request.write(remote.getOutBuffer());
-            remote.getOutBuffer().flip();
-            tryFlushWrite(remote);
-            //
-            System.currentTimeMillis();
+        } catch (IOException e) {
+            log.warn("connect cloud fail", e);
+            closePipe(remote.getPipe());
+            return;
         }
+        finishRemoteConnect(remote);
     }
 
-    private void doWrite(SocketChannel socketChannel) throws IOException {
-        Channel channel=getChannelFromSocketChannel(socketChannel);
-        boolean flushed = tryFlushWrite(channel);
-        if (flushed) {
-            Channel other = channel.getPipe().otherChannel(channel);
-            channel.getKey().interestOps(SelectionKey.OP_READ);
-            other.getKey().interestOps(SelectionKey.OP_READ);
+    private void doWrite(SelectionKey key) throws IOException {
+        Channel channel = getChannel(key);
+        if (channel == null) {
+            return;
+        }
+        flushPendingWrites(channel);
+    }
+
+    private void tryClosePipe(Pipe pipe) {
+        if (pipe == null || pipe.isClosed()) {
+            return;
+        }
+        Channel local = pipe.getLocalChannel();
+        Channel remote = pipe.getRemoteChannel();
+        if (local != null && remote != null
+                && local.isInputClosed()
+                && remote.isInputClosed()
+                && local.getOutBuffer().position() == 0
+                && remote.getOutBuffer().position() == 0
+                && !local.isOutputShutdownPending()
+                && !remote.isOutputShutdownPending()) {
+            closePipe(pipe);
         }
     }
 
     private void closePipe(Pipe pipe) {
-        objAttrUtil.delObj(pipe.localChannel);
-        objAttrUtil.delObj(pipe.remoteChannel);
-        log.info("close {}", pipe.targetAddr);
-        pipeList.remove(pipe);
-        if (pipe.getLocalChannel() != null) {
-            try {
-                pipe.getLocalChannel().getSocketChannel().close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        if (pipe.getRemoteChannel() != null) {
-            try {
-                pipe.getRemoteChannel().getSocketChannel().close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-    private void tryDisableOutput(Channel channel){
-        if(channel!=null&&channel.getSocketChannel()!=null&&channel.getOutBuffer().position()==0){
-            try {
-                channel.getSocketChannel().shutdownOutput();
-            }catch (Exception e){
-                log.error(e.getMessage(),e);
-            }
-        }
-    }
-    private void closeChannelInput(Channel channel){
-        try {
-            Pipe pipe=channel.getPipe();
-            if(channel.getSocketChannel()!=null){
-                channel.getSocketChannel().shutdownInput();
-                channel.getKey().interestOps(0);
-            }
-            Channel other=pipe.otherChannel(channel);
-            if(other!=null&&other.getSocketChannel()!=null){
-                tryDisableOutput(other);
-            }
-        }catch (Exception e){
-            log.error(e.getMessage(),e);
-        }
-    }
-    private void doRead(SocketChannel socketChannel) {
-
-        Channel channel=getChannelFromSocketChannel(socketChannel);
-        Pipe pipe=channel.getPipe();
-        ByteBuffer inBuffer = channel.getInBuffer();
-        inBuffer.clear();
-        //
-        if (inBuffer.remaining() <= 0) {
-            log.warn("buffer full");
-            throw new RuntimeException("buffer full");
-        }
-        int readCount = 0;
-        try {
-            readCount = socketChannel.read(inBuffer);
-            log.debug("readCount {}", readCount);
-        } catch (IOException e) {
-            closePipe(pipe);
-            e.printStackTrace();
+        if (pipe == null || pipe.isClosed()) {
             return;
         }
-        if (readCount == -1) {
-            log.debug("read -1");
-            closeChannelInput(channel);
-        } else {
-            inBuffer.flip();
-            if (channel.getType().equals("local")) {
-                handleLocalIn(channel);
-            } else {
-                handleRemoteIn(channel);
+        pipe.setClosed(true);
+        pipeList.remove(pipe);
+        log.info("close {}", pipe.getTargetAddr());
+        closeChannel(pipe.getLocalChannel());
+        closeChannel(pipe.getRemoteChannel());
+    }
+
+    private void closeChannel(Channel channel) {
+        if (channel == null) {
+            return;
+        }
+        try {
+            if (channel.getKey() != null) {
+                channel.getKey().cancel();
             }
-            System.currentTimeMillis();
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+        }
+        try {
+            if (channel.getSocketChannel() != null) {
+                channel.getSocketChannel().close();
+            }
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+        }
+    }
+
+    private void closeChannelInput(Channel channel) {
+        if (channel == null) {
+            return;
+        }
+        channel.setInputClosed(true);
+        try {
+            if (channel.getSocketChannel() != null) {
+                channel.getSocketChannel().shutdownInput();
+            }
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+        }
+        setReadInterest(channel, false);
+
+        Pipe pipe = channel.getPipe();
+        if (pipe == null) {
+            return;
+        }
+        Channel other = pipe.otherChannel(channel);
+        if (other != null && other.getSocketChannel() != null) {
+            if (other.getOutBuffer().position() == 0) {
+                try {
+                    if (other.getSocketChannel().isConnected()) {
+                        other.getSocketChannel().shutdownOutput();
+                    }
+                } catch (IOException e) {
+                    log.error(e.getMessage(), e);
+                }
+            } else {
+                other.setOutputShutdownPending(true);
+                setWriteInterest(other, true);
+            }
+        }
+        tryClosePipe(pipe);
+    }
+
+    private void doRead(SelectionKey key) {
+        Channel channel = getChannel(key);
+        if (channel == null) {
+            return;
+        }
+        Pipe pipe = channel.getPipe();
+        ByteBuffer inBuffer = channel.getInBuffer();
+        inBuffer.clear();
+
+        int readCount;
+        try {
+            readCount = channel.getSocketChannel().read(inBuffer);
+        } catch (IOException e) {
+            closePipe(pipe);
+            log.warn(e.getMessage(), e);
+            return;
+        }
+
+        if (readCount == -1) {
+            closeChannelInput(channel);
+            return;
+        }
+        if (readCount == 0) {
+            return;
+        }
+
+        inBuffer.flip();
+        if ("local".equals(channel.getType())) {
+            handleLocalIn(channel);
+        } else {
+            handleRemoteIn(channel);
         }
     }
 
@@ -362,55 +506,50 @@ public class NioClient implements Runnable {
             serverChannel.socket().bind(new InetSocketAddress(configDto.getClient(), configDto.getClientPort()));
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
-            while (true){
-                int selectCount=selector.select(500);
-                if(selectCount>0){
-                    for (Iterator it = selector.selectedKeys().iterator(); it.hasNext(); ) {
-                        SelectionKey key = (SelectionKey) it.next();
+            while (true) {
+                int selectCount = selector.select(500);
+                if (selectCount > 0) {
+                    for (Iterator<SelectionKey> it = selector.selectedKeys().iterator(); it.hasNext(); ) {
+                        SelectionKey key = it.next();
                         it.remove();
-                        if (key.isValid()) {
-                            try {
-                                if (key.isValid()&&key.isAcceptable()) {
-                                    doAccept((ServerSocketChannel) key.channel());
-                                }
-                                if (key.isValid()&&key.isReadable()) {
-                                    doRead((SocketChannel) key.channel());
-                                }
-                                if (key.isValid()&&key.isConnectable()) {
-                                    doConnect((SocketChannel) key.channel());
-                                }
-                                if (key.isValid()&&key.isWritable()) {
-                                    doWrite((SocketChannel) key.channel());
-                                }
-                            } catch (Exception e) {
-                                log.warn(e.getMessage(), e);
-                                Channel channel=getChannelFromSocketChannel((SocketChannel) key.channel());
-                                if (channel!=null&&channel.getPipe() != null) {
-                                    closePipe(channel.getPipe());
-                                }
+                        if (!key.isValid()) {
+                            continue;
+                        }
+                        try {
+                            if (key.isAcceptable()) {
+                                doAccept((ServerSocketChannel) key.channel());
+                            }
+                            if (key.isReadable()) {
+                                doRead(key);
+                            }
+                            if (key.isConnectable()) {
+                                doConnect(key);
+                            }
+                            if (key.isWritable()) {
+                                doWrite(key);
+                            }
+                        } catch (Exception e) {
+                            log.warn(e.getMessage(), e);
+                            Channel channel = (Channel) key.attachment();
+                            if (channel != null) {
+                                closePipe(channel.getPipe());
                             }
                         }
                     }
                 }
-                if(closeFlag.get()){
+                if (closeFlag.get()) {
                     break;
                 }
             }
-            serverChannel.socket().close();
+
             serverChannel.close();
             selector.close();
 
-            for (Pipe p :new ArrayList<>(pipeList)){
-                try {
-                    closePipe(p);
-                }catch (Exception e){
-                    log.error(e.getMessage(),e);
-                }
+            for (Pipe pipe : new ArrayList<>(pipeList)) {
+                closePipe(pipe);
             }
-            System.currentTimeMillis();
         } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
-
     }
 }
